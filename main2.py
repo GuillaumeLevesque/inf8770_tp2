@@ -15,13 +15,13 @@ def rgb2yuv(rgb):
     return yuv
 
 
-imagelue = py.imread('cageSmall.jpeg').astype(np.float)
-print("rgb", imagelue[0][0])
+# step 0 : load image in float values
+image = py.imread('cageSmall.jpeg').astype(np.float)
+print("rgb", image[0][0])
 
-imageYUV = rgb2yuv(imagelue)
-print("yuv", imageYUV[0][0])
-# py.imshow(imageYUV)
-# py.show()
+# step 1 : RGB -> YUV, 4:2:0
+YUV = rgb2yuv(image)
+print("yuv", YUV[0][0])
 
 
 
