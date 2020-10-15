@@ -9,17 +9,17 @@ def rgb2yuv(rgb):
             r = pixel[0]
             g = pixel[1]
             b = pixel[2]
-            yuv[i][j][0] = np.clip(np.float64((r+2*g+b)/4), 0, 255)
-            yuv[i][j][1] = np.clip(np.float64((b-g)), 0, 255)
-            yuv[i][j][2] = np.clip(np.float64((r-g)), 0, 255)
+            yuv[i][j][0] = np.float64((r+2*g+b)/4)
+            yuv[i][j][1] = np.float64((b-g))
+            yuv[i][j][2] = np.float64((r-g))
     return yuv
 
 
-imagelue = py.imread('cageSmall.jpeg')
-print("rgb", imagelue[110][110])
+imagelue = py.imread('cageSmall.jpeg').astype(np.float)
+print("rgb", imagelue[0][0])
 
-imageYUV = rgb2yuv(imagelue.astype(np.float)).astype(np.uint8)
-print("yuv", imageYUV[110][110])
+imageYUV = rgb2yuv(imagelue)
+print("yuv", imageYUV[0][0])
 # py.imshow(imageYUV)
 # py.show()
 
