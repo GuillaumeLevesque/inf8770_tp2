@@ -15,6 +15,20 @@ def rgb2yuv(rgb):
     return yuv
 
 
+def yuv2rgb(yuv):
+    rgb = np.empty_like(yuv)
+    for i, line in enumerate(yuv):
+        for j, pixel in enumerate(line):
+            y = pixel[0]
+            u = pixel[1]
+            v = pixel[2]
+            g = y-(u+v)/4
+            rgb[i][j][0] = np.float64(v+g)
+            rgb[i][j][1] = np.float64(g)
+            rgb[i][j][2] = np.float64(u+g)
+    return rgb
+
+
 def chromasubsampling(scheme, yuv):
     if len(yuv) % 2 != 0 or len(yuv[0]) % 2 != 0:
         print("dims", len(yuv), len(yuv[0]))
@@ -67,6 +81,8 @@ py.show()
 
 # step 1.1: RGB -> YUV
 YUV = rgb2yuv(image.astype(np.float))
+print("yuv", YUV[0][0])
+print("reversed ", yuv2rgb(YUV.copy())[0][0])
 print("yuv", YUV[0][0])
 
 
