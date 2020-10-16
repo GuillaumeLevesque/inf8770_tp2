@@ -23,9 +23,9 @@ def yuv2rgb(yuv):
             u = pixel[1]
             v = pixel[2]
             g = y-(u+v)/4
-            rgb[i][j][0] = np.float64(v+g)
-            rgb[i][j][1] = np.float64(g)
-            rgb[i][j][2] = np.float64(u+g)
+            rgb[i][j][0] = np.int(v+g)
+            rgb[i][j][1] = np.int(g)
+            rgb[i][j][2] = np.int(u+g)
     return rgb
 
 
@@ -38,13 +38,10 @@ def chromasubsampling(scheme, yuv):
     u = np.zeros((len(yuv), len(yuv[0])))
     v = np.zeros((len(yuv), len(yuv[0])))
     for i, line in enumerate(yuv):
-        for j, triplet in enumerate(line):
-            y[i][j] = (triplet[0])
-            u[i][j] = (triplet[1])
-            v[i][j] = (triplet[2])
-    print("--")
-    print("u avant", u[0][0], u[0][1], u[0][2], u[0][3], u[0][4], u[0][5], u[0][6], u[0][7])
-    print("u avant", u[1][0], u[1][1], u[1][2], u[1][3], u[1][4], u[1][5], u[1][6], u[1][7])
+        for j, pixel in enumerate(line):
+            y[i][j] = (pixel[0])
+            u[i][j] = (pixel[1])
+            v[i][j] = (pixel[2])
     # https://medium.com/@sddkal/chroma-subsampling-in-numpy-47bf2bb5af83
     if scheme == 420:
         u[1::2, :] = u[::2, :]
@@ -62,12 +59,8 @@ def chromasubsampling(scheme, yuv):
     else:
         print("wrong value of subsampling scheme")
         exit(-1)
-    print("u apres", u[0][0], u[0][1], u[0][2], u[0][3], u[0][4], u[0][5], u[0][6], u[0][7])
-    print("u apres", u[1][0], u[1][1], u[1][2], u[1][3], u[1][4], u[1][5], u[1][6], u[1][7])
-    print("--")
     for i, line in enumerate(yuv):
         for j, pixel in enumerate(line):
-            yuv[i][j][0] = y[i][j]
             yuv[i][j][1] = u[i][j]
             yuv[i][j][2] = v[i][j]
     return yuv
@@ -78,16 +71,27 @@ def chromasubsampling(scheme, yuv):
 # ----------------------------------------------------------------
 # step 0: load image in float values
 image = py.imread('cageSmall.jpeg')
-print("rgb", image[0][0])
 py.imshow(image)
 py.show()
 
 # step 1.1: RGB -> YUV
 YUV = rgb2yuv(image.astype(np.float))
-print("yuv", YUV[0][0])
-print("reversed ", yuv2rgb(YUV.copy())[0][0])
-print("yuv", YUV[0][0])
+# tests
+py.imshow(yuv2rgb(YUV.copy()).astype("uint8"))
+py.show()
+Gray = YUV.copy()
+for line in Gray:
+    for pixel in line:
+        pixel[1] = pixel[0]
+        pixel[2] = pixel[0]
+py.imshow(Gray.astype("uint8"))
+py.show()
 
 
 # step 1.2: chroma subsampling
-YUV = chromasubsampling(420, YUV)
+subsamplingScheme = 420
+YUV = chromasubsampling(subsamplingScheme, YUV)
+# test
+GraySubSample = chromasubsampling(subsamplingScheme, Gray)
+py.imshow(GraySubSample.astype("uint8"))
+py.show()
