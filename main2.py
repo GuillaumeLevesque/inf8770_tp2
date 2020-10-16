@@ -73,6 +73,9 @@ def chromasubsampling(scheme, yuv):
     return yuv
 
 
+# ----------------------------------------------------------------
+# --------------------------- MAIN -------------------------------
+# ----------------------------------------------------------------
 # step 0: load image in float values
 image = py.imread('cageSmall.jpeg')
 print("rgb", image[0][0])
