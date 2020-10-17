@@ -48,3 +48,13 @@ import libinf8770 as mylib
 # py.imshow(printable)
 
 # py.show()
+
+
+# # test yuvsubsampled
+# imread = py.imread("cageSmall.jpeg")
+
+# yuvimage = mylib.yuvimage()
+# yuvimage.initfromimread(imread)
+
+# yuvsubsampled = mylib.yuvsubsampled((4,2,2))
+# yuvsubsampled.initfromyuvimage(yuvimage)

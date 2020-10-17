@@ -68,9 +68,28 @@ class yuvimage(image):
         self.u = rgbimage.b - rgbimage.g # u = b - g
         self.v = rgbimage.r - rgbimage.g # v = r - g
 
-# class yuvsubsampled:
-    # todo
+class yuvsubsampled:
 
+    _supportedsubsampling = [(4, 2, 0), (4, 2, 2)]
+    
+    def __init__(self, subsampling: tuple = (4, 2, 0)):
+        if subsampling not in yuvsubsampled._supportedsubsampling:
+            raise ValueError("Unsupported subsampling", subsampling, "supported subsampling: ", yuvsubsampled._supportedsubsampling)
+        self.subsampling = subsampling
+        self.y = None
+        self.u = None
+        self.v = None
+
+    def initfromyuvimage(self, yuvimage):
+        self.y = yuvimage.y
+        if self.subsampling == (4, 2, 0):
+            self.u = yuvimage.u[::2, ::2] # keep 1 row in 2 and 1 element in 2 from each row
+            self.v = yuvimage.v[::2, ::2]
+        elif self.subsampling == (4, 2, 2):
+            self.u = yuvimage.u[:, ::2] # keep every row and 1 element in 2 from each row
+            self.v = yuvimage.v[:, ::2]
+        else:
+            print("This was not supposed to happen...")
 
 # rgbpixel:     np.ndarray of shape = (3,) and dtype = np.uint8
 #               first column is r value, second column is g value, third column is b value
