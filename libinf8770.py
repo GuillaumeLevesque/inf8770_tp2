@@ -75,6 +75,7 @@ class yuvsubsampled:
     def __init__(self, subsampling: tuple = (4, 2, 0)):
         if subsampling not in yuvsubsampled._supportedsubsampling:
             raise ValueError("Unsupported subsampling", subsampling, "supported subsampling: ", yuvsubsampled._supportedsubsampling)
+
         self.subsampling = subsampling
         self.y = None
         self.u = None
@@ -90,6 +91,102 @@ class yuvsubsampled:
             self.v = yuvimage.v[:, ::2]
         else:
             print("This was not supposed to happen...")
+
+class yuvdwted:
+
+    _steps = [
+        "lx", # lowpass axis = x
+        "hx", # highpass axis = x
+        "lxly", # lowpass x then lowpass y
+        "lxhy", # lowpass x then highpass y
+        "hxly", # highpass x then lowpass y
+        "hxhy", # highpass x then highpass y
+    ]
+
+    def __init__(self):
+        self.recursionlevel = 1
+        self.y = None
+        self.u = None
+        self.v = None
+
+    def initfromyuvsubsampled(self, yuvsubsampled, recursionlevel):
+        y = dict.fromkeys(yuvdwted._steps)
+        y["lxly"] = yuvsubsampled.y
+        u = dict.fromkeys(yuvdwted._steps)
+        u["lxly"] = yuvsubsampled.u
+        v = dict.fromkeys(yuvdwted._steps)
+        v["lxly"] = yuvsubsampled.v
+
+        for _ in range(recursionlevel):
+            y["lx"] = self._filter(y["lxly"], "lowpass", 'x')
+            u["lx"] = self._filter(u["lxly"], "lowpass", 'x')
+            v["lx"] = self._filter(v["lxly"], "lowpass", 'x')
+
+            y["hx"] = self._filter(y["lxly"], "highpass", 'x')
+            u["hx"] = self._filter(u["lxly"], "highpass", 'x')
+            v["hx"] = self._filter(v["lxly"], "highpass", 'x')
+
+            y["lxly"] = self._filter(y["lx"], "lowpass", 'y')
+            u["lxly"] = self._filter(u["lx"], "lowpass", 'y')
+            v["lxly"] = self._filter(v["lx"], "lowpass", 'y')
+
+            y["lxhy"] = self._filter(y["lx"], "highpass", 'y')
+            u["lxhy"] = self._filter(u["lx"], "highpass", 'y')
+            v["lxhy"] = self._filter(v["lx"], "highpass", 'y')
+
+            y["hxly"] = self._filter(y["hx"], "lowpass", 'y')
+            u["hxly"] = self._filter(u["hx"], "lowpass", 'y')
+            v["hxly"] = self._filter(v["hx"], "lowpass", 'y')
+
+            y["hxhy"] = self._filter(y["hx"], "highpass", 'y')
+            u["hxhy"] = self._filter(u["hx"], "highpass", 'y')
+            v["hxhy"] = self._filter(v["hx"], "highpass", 'y')
+
+        self.recursionlevel = recursionlevel
+        self.y = y
+        self.u = u
+        self.v = v
+
+
+    def _filter(self, channel, ftype, axis):
+        if ftype not in ["lowpass", "highpass"]:
+            raise ValueError("Invalid filter type", ftype, "valid filter types: ", ["lowpass", "highpass"])
+        if axis not in ['x', 'y']:
+            raise ValueError("Invalid axis", axis, "valid axis: ", ['x', 'y'])
+
+        if axis == 'x':
+            evens = channel[:, ::2] # all rows, 1 in 2 elements starting from element 0
+            odds = channel[:, 1::2] # all rows, 1 in 2 elements starting from element 1
+            if evens.shape == odds.shape:
+                if ftype == "lowpass":
+                    return (evens + odds) / 2
+                elif ftype == "highpass":
+                    return (evens - odds) / 2
+            else: # if shapes not equal, evens will always have 1 more element in its rows
+                lastelements = evens[:, -1:]
+                allexceptlastelements = evens[:, :-1]
+                if ftype == "lowpass":
+                    result = (allexceptlastelements + odds) / 2
+                elif ftype == "highpass":
+                    result = (allexceptlastelements - odds) / 2
+                return np.concatenate((result, lastelements), axis = 1)
+        elif axis == 'y':
+            evens = channel[::2, :] # 1 row in 2 starting from row 0, all elements
+            odds = channel[1::2, :] # 1 row in 2 starting from row 1, all elements
+            if evens.shape == odds.shape:
+                if ftype == "lowpass":
+                    return (evens + odds) / 2
+                elif ftype == "highpass":
+                    return (evens - odds) / 2
+            else: # if shapes not equal, evens will always have 1 row
+                lastrow = evens[-1:, :]
+                allexceptlastrow = evens[:-1, :]
+                if ftype == "lowpass":
+                    result = (allexceptlastrow + odds) / 2
+                elif ftype == "highpass":
+                    result = (allexceptlastrow - odds) / 2
+                return np.concatenate((result, lastrow), axis = 0)
+
 
 # rgbpixel:     np.ndarray of shape = (3,) and dtype = np.uint8
 #               first column is r value, second column is g value, third column is b value

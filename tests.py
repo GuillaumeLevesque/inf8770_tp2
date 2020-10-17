@@ -26,7 +26,7 @@ import libinf8770 as mylib
 
 
 # # test rgbimage and yuvimage
-# imread = py.imread("cageSmall.jpeg")
+# imread = py.imread("power.jpg")
 
 # rgbimage = mylib.rgbimage()
 # rgbimage.initfromimread(imread)
@@ -58,3 +58,18 @@ import libinf8770 as mylib
 
 # yuvsubsampled = mylib.yuvsubsampled((4,2,2))
 # yuvsubsampled.initfromyuvimage(yuvimage)
+
+
+# test yuvdwted
+imread = py.imread("power.jpg")
+
+yuvimage = mylib.yuvimage()
+yuvimage.initfromimread(imread)
+
+yuvsubsampled = mylib.yuvsubsampled()
+yuvsubsampled.initfromyuvimage(yuvimage)
+
+yuvdwted = mylib.yuvdwted()
+yuvdwted.initfromyuvsubsampled(yuvsubsampled, 3)
+
+print("shape: ", yuvdwted.v["lxly"].shape)
