@@ -60,7 +60,22 @@ import libinf8770 as mylib
 # yuvsubsampled.initfromyuvimage(yuvimage)
 
 
-# test yuvdwted
+# # test yuvdwted
+# imread = py.imread("power.jpg")
+
+# yuvimage = mylib.yuvimage()
+# yuvimage.initfromimread(imread)
+
+# yuvsubsampled = mylib.yuvsubsampled()
+# yuvsubsampled.initfromyuvimage(yuvimage)
+
+# yuvdwted = mylib.yuvdwted()
+# yuvdwted.initfromyuvsubsampled(yuvsubsampled, 3)
+
+# print("shape: ", yuvdwted.v["lxly"].shape)
+
+
+# test quantifiedyuvdwted
 imread = py.imread("power.jpg")
 
 yuvimage = mylib.yuvimage()
@@ -72,4 +87,8 @@ yuvsubsampled.initfromyuvimage(yuvimage)
 yuvdwted = mylib.yuvdwted()
 yuvdwted.initfromyuvsubsampled(yuvsubsampled, 3)
 
-print("shape: ", yuvdwted.v["lxly"].shape)
+quantifiedyuvdwted = mylib.quantifiedyuvdwted()
+quantifiedyuvdwted.initfromyuvdwted(yuvdwted, 8, 1)
+
+print("yuvdwted.y[\"lxly\"]: ", yuvdwted.y["lxly"][0, 0:5])
+print("quantifiedyuvdwted.y[\"lxly\"]: ", quantifiedyuvdwted.y["lxly"][0:5])

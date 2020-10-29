@@ -94,7 +94,7 @@ class yuvsubsampled:
 
 class yuvdwted:
 
-    _steps = [
+    _dwtsteps = [
         "lx", # lowpass axis = x
         "hx", # highpass axis = x
         "lxly", # lowpass x then lowpass y
@@ -110,45 +110,45 @@ class yuvdwted:
         self.v = None
 
     def initfromyuvsubsampled(self, yuvsubsampled, recursionlevel):
-        y = dict.fromkeys(yuvdwted._steps)
-        y["lxly"] = yuvsubsampled.y
-        u = dict.fromkeys(yuvdwted._steps)
-        u["lxly"] = yuvsubsampled.u
-        v = dict.fromkeys(yuvdwted._steps)
-        v["lxly"] = yuvsubsampled.v
+        y = dict.fromkeys(yuvdwted._dwtsteps)
+        y["lxly"] = yuvsubsampled.y.copy()
+        u = dict.fromkeys(yuvdwted._dwtsteps)
+        u["lxly"] = yuvsubsampled.u.copy()
+        v = dict.fromkeys(yuvdwted._dwtsteps)
+        v["lxly"] = yuvsubsampled.v.copy()
 
         for _ in range(recursionlevel):
-            y["lx"] = self._filter(y["lxly"], "lowpass", 'x')
-            u["lx"] = self._filter(u["lxly"], "lowpass", 'x')
-            v["lx"] = self._filter(v["lxly"], "lowpass", 'x')
+            y["lx"] = yuvdwted._filter(y["lxly"], "lowpass", 'x')
+            u["lx"] = yuvdwted._filter(u["lxly"], "lowpass", 'x')
+            v["lx"] = yuvdwted._filter(v["lxly"], "lowpass", 'x')
 
-            y["hx"] = self._filter(y["lxly"], "highpass", 'x')
-            u["hx"] = self._filter(u["lxly"], "highpass", 'x')
-            v["hx"] = self._filter(v["lxly"], "highpass", 'x')
+            y["hx"] = yuvdwted._filter(y["lxly"], "highpass", 'x')
+            u["hx"] = yuvdwted._filter(u["lxly"], "highpass", 'x')
+            v["hx"] = yuvdwted._filter(v["lxly"], "highpass", 'x')
 
-            y["lxly"] = self._filter(y["lx"], "lowpass", 'y')
-            u["lxly"] = self._filter(u["lx"], "lowpass", 'y')
-            v["lxly"] = self._filter(v["lx"], "lowpass", 'y')
+            y["lxly"] = yuvdwted._filter(y["lx"], "lowpass", 'y')
+            u["lxly"] = yuvdwted._filter(u["lx"], "lowpass", 'y')
+            v["lxly"] = yuvdwted._filter(v["lx"], "lowpass", 'y')
 
-            y["lxhy"] = self._filter(y["lx"], "highpass", 'y')
-            u["lxhy"] = self._filter(u["lx"], "highpass", 'y')
-            v["lxhy"] = self._filter(v["lx"], "highpass", 'y')
+            y["lxhy"] = yuvdwted._filter(y["lx"], "highpass", 'y')
+            u["lxhy"] = yuvdwted._filter(u["lx"], "highpass", 'y')
+            v["lxhy"] = yuvdwted._filter(v["lx"], "highpass", 'y')
 
-            y["hxly"] = self._filter(y["hx"], "lowpass", 'y')
-            u["hxly"] = self._filter(u["hx"], "lowpass", 'y')
-            v["hxly"] = self._filter(v["hx"], "lowpass", 'y')
+            y["hxly"] = yuvdwted._filter(y["hx"], "lowpass", 'y')
+            u["hxly"] = yuvdwted._filter(u["hx"], "lowpass", 'y')
+            v["hxly"] = yuvdwted._filter(v["hx"], "lowpass", 'y')
 
-            y["hxhy"] = self._filter(y["hx"], "highpass", 'y')
-            u["hxhy"] = self._filter(u["hx"], "highpass", 'y')
-            v["hxhy"] = self._filter(v["hx"], "highpass", 'y')
+            y["hxhy"] = yuvdwted._filter(y["hx"], "highpass", 'y')
+            u["hxhy"] = yuvdwted._filter(u["hx"], "highpass", 'y')
+            v["hxhy"] = yuvdwted._filter(v["hx"], "highpass", 'y')
 
         self.recursionlevel = recursionlevel
         self.y = y
         self.u = u
         self.v = v
 
-
-    def _filter(self, channel, ftype, axis):
+    @staticmethod
+    def _filter(channel, ftype, axis):
         if ftype not in ["lowpass", "highpass"]:
             raise ValueError("Invalid filter type", ftype, "valid filter types: ", ["lowpass", "highpass"])
         if axis not in ['x', 'y']:
@@ -186,6 +186,32 @@ class yuvdwted:
                 elif ftype == "highpass":
                     result = (allexceptlastrow - odds) / 2
                 return np.concatenate((result, lastrow), axis = 0)
+
+class quantifiedyuvdwted:
+
+    def __init__(self):
+        self.y = None
+        self.u = None
+        self.v = None
+        self.deadzone = 0
+        self.step = 1
+    
+    def initfromyuvdwted(self, yuvdwted, deadzone, step):
+        self.y = dict.fromkeys(yuvdwted._dwtsteps)
+        self.u = dict.fromkeys(yuvdwted._dwtsteps)
+        self.v = dict.fromkeys(yuvdwted._dwtsteps)
+        self.y["lx"] = quantifiedyuvdwted._quantify(yuvdwted.y["lx"].flatten(), deadzone, step)
+        self.y["hx"] = quantifiedyuvdwted._quantify(yuvdwted.y["hx"].flatten(), deadzone, step)
+        self.y["lxly"] = quantifiedyuvdwted._quantify(yuvdwted.y["lxly"].flatten(), deadzone, step)
+        self.y["lxhy"] = quantifiedyuvdwted._quantify(yuvdwted.y["lxhy"].flatten(), deadzone, step)
+        self.y["hxly"] = quantifiedyuvdwted._quantify(yuvdwted.y["hxly"].flatten(), deadzone, step)
+        self.y["hxhy"] = quantifiedyuvdwted._quantify(yuvdwted.y["hxhy"].flatten(), deadzone, step)
+        self.deadzone = deadzone
+        self.step = step
+    
+    @staticmethod
+    def _quantify(vector, deadzone, step):
+        return np.array([max(0, math.floor(((x - (deadzone / 2)) / step) + 1)) for x in vector])
 
 
 # rgbpixel:     np.ndarray of shape = (3,) and dtype = np.uint8
