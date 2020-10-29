@@ -72,7 +72,9 @@ import libinf8770 as mylib
 # yuvdwted = mylib.yuvdwted()
 # yuvdwted.initfromyuvsubsampled(yuvsubsampled, 3)
 
-# print("shape: ", yuvdwted.v["lxly"].shape)
+# print("recursion level: ", yuvdwted.recursionlevel)
+# print("reconstructiondata size: ", len(yuvdwted.reconstructiondata))
+# print("y shape: ", yuvdwted.y.shape)
 
 
 # test quantifiedyuvdwted
@@ -90,5 +92,5 @@ yuvdwted.initfromyuvsubsampled(yuvsubsampled, 3)
 quantifiedyuvdwted = mylib.quantifiedyuvdwted()
 quantifiedyuvdwted.initfromyuvdwted(yuvdwted, 8, 1)
 
-print("yuvdwted.y[\"lxly\"]: ", yuvdwted.y["lxly"][0, 0:5])
-print("quantifiedyuvdwted.y[\"lxly\"]: ", quantifiedyuvdwted.y["lxly"][0:5])
+print("yuvdwted.y: ", yuvdwted.y[0, 0:5])
+print("quantifiedyuvdwted.y: ", quantifiedyuvdwted.y[0:5])

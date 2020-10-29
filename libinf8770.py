@@ -94,58 +94,58 @@ class yuvsubsampled:
 
 class yuvdwted:
 
-    _dwtsteps = [
-        "lx", # lowpass axis = x
-        "hx", # highpass axis = x
-        "lxly", # lowpass x then lowpass y
-        "lxhy", # lowpass x then highpass y
-        "hxly", # highpass x then lowpass y
-        "hxhy", # highpass x then highpass y
-    ]
-
     def __init__(self):
         self.recursionlevel = 1
         self.y = None
         self.u = None
         self.v = None
+        self.reconstructiondata = []
 
     def initfromyuvsubsampled(self, yuvsubsampled, recursionlevel):
-        y = dict.fromkeys(yuvdwted._dwtsteps)
-        y["lxly"] = yuvsubsampled.y.copy()
-        u = dict.fromkeys(yuvdwted._dwtsteps)
-        u["lxly"] = yuvsubsampled.u.copy()
-        v = dict.fromkeys(yuvdwted._dwtsteps)
-        v["lxly"] = yuvsubsampled.v.copy()
+        self.y = yuvsubsampled.y.copy()
+        self.u = yuvsubsampled.u.copy()
+        self.v = yuvsubsampled.v.copy()
+        self.recursionlevel = recursionlevel
 
         for _ in range(recursionlevel):
-            y["lx"] = yuvdwted._filter(y["lxly"], "lowpass", 'x')
-            u["lx"] = yuvdwted._filter(u["lxly"], "lowpass", 'x')
-            v["lx"] = yuvdwted._filter(v["lxly"], "lowpass", 'x')
+            ylx = yuvdwted._filter(self.y, "lowpass", 'x')
+            ulx = yuvdwted._filter(self.u, "lowpass", 'x')
+            vlx = yuvdwted._filter(self.v, "lowpass", 'x')
 
-            y["hx"] = yuvdwted._filter(y["lxly"], "highpass", 'x')
-            u["hx"] = yuvdwted._filter(u["lxly"], "highpass", 'x')
-            v["hx"] = yuvdwted._filter(v["lxly"], "highpass", 'x')
+            yhx = yuvdwted._filter(self.y, "highpass", 'x')
+            uhx = yuvdwted._filter(self.u, "highpass", 'x')
+            vhx = yuvdwted._filter(self.v, "highpass", 'x')
 
-            y["lxly"] = yuvdwted._filter(y["lx"], "lowpass", 'y')
-            u["lxly"] = yuvdwted._filter(u["lx"], "lowpass", 'y')
-            v["lxly"] = yuvdwted._filter(v["lx"], "lowpass", 'y')
+            ylxly = yuvdwted._filter(ylx, "lowpass", 'y')
+            ulxly = yuvdwted._filter(ulx, "lowpass", 'y')
+            vlxly = yuvdwted._filter(vlx, "lowpass", 'y')
 
-            y["lxhy"] = yuvdwted._filter(y["lx"], "highpass", 'y')
-            u["lxhy"] = yuvdwted._filter(u["lx"], "highpass", 'y')
-            v["lxhy"] = yuvdwted._filter(v["lx"], "highpass", 'y')
+            ylxhy = yuvdwted._filter(ylx, "highpass", 'y')
+            ulxhy = yuvdwted._filter(ulx, "highpass", 'y')
+            vlxhy = yuvdwted._filter(vlx, "highpass", 'y')
 
-            y["hxly"] = yuvdwted._filter(y["hx"], "lowpass", 'y')
-            u["hxly"] = yuvdwted._filter(u["hx"], "lowpass", 'y')
-            v["hxly"] = yuvdwted._filter(v["hx"], "lowpass", 'y')
+            yhxly = yuvdwted._filter(yhx, "lowpass", 'y')
+            uhxly = yuvdwted._filter(uhx, "lowpass", 'y')
+            vhxly = yuvdwted._filter(vhx, "lowpass", 'y')
 
-            y["hxhy"] = yuvdwted._filter(y["hx"], "highpass", 'y')
-            u["hxhy"] = yuvdwted._filter(u["hx"], "highpass", 'y')
-            v["hxhy"] = yuvdwted._filter(v["hx"], "highpass", 'y')
+            yhxhy = yuvdwted._filter(yhx, "highpass", 'y')
+            uhxhy = yuvdwted._filter(uhx, "highpass", 'y')
+            vhxhy = yuvdwted._filter(vhx, "highpass", 'y')
 
-        self.recursionlevel = recursionlevel
-        self.y = y
-        self.u = u
-        self.v = v
+            self.y = ylxly
+            self.u = ulxly
+            self.v = vlxly
+            self.reconstructiondata.append({
+                "ylxhy": ylxhy,
+                "yhxly": yhxly,
+                "yhxhy": yhxhy,
+                "ulxhy": ulxhy,
+                "uhxly": uhxly,
+                "uhxhy": uhxhy,
+                "vlxhy": vlxhy,
+                "vhxly": vhxly,
+                "vhxhy": vhxhy
+            })
 
     @staticmethod
     def _filter(channel, ftype, axis):
@@ -193,21 +193,30 @@ class quantifiedyuvdwted:
         self.y = None
         self.u = None
         self.v = None
+        self.reconstructiondata = []
         self.deadzone = 0
         self.step = 1
     
     def initfromyuvdwted(self, yuvdwted, deadzone, step):
-        self.y = dict.fromkeys(yuvdwted._dwtsteps)
-        self.u = dict.fromkeys(yuvdwted._dwtsteps)
-        self.v = dict.fromkeys(yuvdwted._dwtsteps)
-        self.y["lx"] = quantifiedyuvdwted._quantify(yuvdwted.y["lx"].flatten(), deadzone, step)
-        self.y["hx"] = quantifiedyuvdwted._quantify(yuvdwted.y["hx"].flatten(), deadzone, step)
-        self.y["lxly"] = quantifiedyuvdwted._quantify(yuvdwted.y["lxly"].flatten(), deadzone, step)
-        self.y["lxhy"] = quantifiedyuvdwted._quantify(yuvdwted.y["lxhy"].flatten(), deadzone, step)
-        self.y["hxly"] = quantifiedyuvdwted._quantify(yuvdwted.y["hxly"].flatten(), deadzone, step)
-        self.y["hxhy"] = quantifiedyuvdwted._quantify(yuvdwted.y["hxhy"].flatten(), deadzone, step)
+        self.y = quantifiedyuvdwted._quantify(yuvdwted.y.flatten(), deadzone, step)
+        self.u = quantifiedyuvdwted._quantify(yuvdwted.u.flatten(), deadzone, step)
+        self.v = quantifiedyuvdwted._quantify(yuvdwted.v.flatten(), deadzone, step)
         self.deadzone = deadzone
         self.step = step
+
+        for x in yuvdwted.reconstructiondata:
+            self.reconstructiondata.append({
+                "ylxhy": quantifiedyuvdwted._quantify(x["ylxhy"].flatten(), deadzone, step),
+                "yhxly": quantifiedyuvdwted._quantify(x["yhxly"].flatten(), deadzone, step),
+                "yhxhy": quantifiedyuvdwted._quantify(x["yhxhy"].flatten(), deadzone, step),
+                "ulxhy": quantifiedyuvdwted._quantify(x["ulxhy"].flatten(), deadzone, step),
+                "uhxly": quantifiedyuvdwted._quantify(x["uhxly"].flatten(), deadzone, step),
+                "uhxhy": quantifiedyuvdwted._quantify(x["uhxhy"].flatten(), deadzone, step),
+                "vlxhy": quantifiedyuvdwted._quantify(x["vlxhy"].flatten(), deadzone, step),
+                "vhxly": quantifiedyuvdwted._quantify(x["vhxly"].flatten(), deadzone, step),
+                "vhxhy": quantifiedyuvdwted._quantify(x["vhxhy"].flatten(), deadzone, step)
+            })
+        
     
     @staticmethod
     def _quantify(vector, deadzone, step):
