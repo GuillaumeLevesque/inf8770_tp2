@@ -204,23 +204,113 @@ class quantifiedyuvdwted:
         self.deadzone = deadzone
         self.step = step
 
-        for x in yuvdwted.reconstructiondata:
+        for i in yuvdwted.reconstructiondata:
             self.reconstructiondata.append({
-                "ylxhy": quantifiedyuvdwted._quantify(x["ylxhy"].flatten(), deadzone, step),
-                "yhxly": quantifiedyuvdwted._quantify(x["yhxly"].flatten(), deadzone, step),
-                "yhxhy": quantifiedyuvdwted._quantify(x["yhxhy"].flatten(), deadzone, step),
-                "ulxhy": quantifiedyuvdwted._quantify(x["ulxhy"].flatten(), deadzone, step),
-                "uhxly": quantifiedyuvdwted._quantify(x["uhxly"].flatten(), deadzone, step),
-                "uhxhy": quantifiedyuvdwted._quantify(x["uhxhy"].flatten(), deadzone, step),
-                "vlxhy": quantifiedyuvdwted._quantify(x["vlxhy"].flatten(), deadzone, step),
-                "vhxly": quantifiedyuvdwted._quantify(x["vhxly"].flatten(), deadzone, step),
-                "vhxhy": quantifiedyuvdwted._quantify(x["vhxhy"].flatten(), deadzone, step)
+                "ylxhy": quantifiedyuvdwted._quantify(i["ylxhy"].flatten(), deadzone, step),
+                "yhxly": quantifiedyuvdwted._quantify(i["yhxly"].flatten(), deadzone, step),
+                "yhxhy": quantifiedyuvdwted._quantify(i["yhxhy"].flatten(), deadzone, step),
+                "ulxhy": quantifiedyuvdwted._quantify(i["ulxhy"].flatten(), deadzone, step),
+                "uhxly": quantifiedyuvdwted._quantify(i["uhxly"].flatten(), deadzone, step),
+                "uhxhy": quantifiedyuvdwted._quantify(i["uhxhy"].flatten(), deadzone, step),
+                "vlxhy": quantifiedyuvdwted._quantify(i["vlxhy"].flatten(), deadzone, step),
+                "vhxly": quantifiedyuvdwted._quantify(i["vhxly"].flatten(), deadzone, step),
+                "vhxhy": quantifiedyuvdwted._quantify(i["vhxhy"].flatten(), deadzone, step)
             })
         
     
     @staticmethod
     def _quantify(vector, deadzone, step):
         return np.array([max(0, math.floor(((x - (deadzone / 2)) / step) + 1)) for x in vector])
+
+class qydlzwed:
+
+    def __init__(self):
+        self.y = None
+        self.ydict = None
+        self.u = None
+        self.udict = None
+        self.v = None
+        self.vdict = None
+        self.reconstructiondata = []
+    
+    def initfromqyd(self, qyd):
+        self.ydict, self.y = qydlzwed._encode(qyd.y)
+        self.udict, self.u = qydlzwed._encode(qyd.u)
+        self.vdict, self.v = qydlzwed._encode(qyd.v)
+
+        for i in qyd.reconstructiondata:
+            ylxhydict, ylxhy = qydlzwed._encode(i["ylxhy"])
+            yhxlydict, yhxly = qydlzwed._encode(i["yhxly"])
+            yhxhydict, yhxhy = qydlzwed._encode(i["yhxhy"])
+            ulxhydict, ulxhy = qydlzwed._encode(i["ulxhy"])
+            uhxlydict, uhxly = qydlzwed._encode(i["uhxly"])
+            uhxhydict, uhxhy = qydlzwed._encode(i["uhxhy"])
+            vlxhydict, vlxhy = qydlzwed._encode(i["vlxhy"])
+            vhxlydict, vhxly = qydlzwed._encode(i["vhxly"])
+            vhxhydict, vhxhy = qydlzwed._encode(i["vhxhy"])
+            self.reconstructiondata.append({
+                "ylxhy": ylxhy,
+                "ylxhydict": ylxhydict,
+                "yhxly": yhxly,
+                "yhxlydict": yhxlydict,
+                "yhxhy": yhxhy,
+                "yhxhydict": yhxhydict,
+                "ulxhy": ulxhy,
+                "ulxhydict": ulxhydict,
+                "uhxly": uhxly,
+                "uhxlydict": uhxlydict,
+                "uhxhy": uhxhy,
+                "uhxhydict": uhxhydict,
+                "vlxhy": vlxhy,
+                "vlxhydict": vlxhydict,
+                "vhxly": vhxly,
+                "vhxlydict": vhxlydict,
+                "vhxhy": vhxhy,
+                "vhxhydict": vhxhydict,
+            })
+    
+    @staticmethod
+    def _getinitdict(vector):
+        symbols = np.array([], dtype = int)
+        
+        for symb in vector:
+            if symb not in symbols:
+                symbols = np.append(symbols, symb)
+        
+        initdict = {}
+        symbols.sort()
+        for i in range(symbols.size):
+            initdict[str(symbols[i])] = "{:b}".format(i).zfill(int(np.ceil(np.log2(symbols.size))))
+
+        return initdict
+    
+    @staticmethod
+    def _encode(vector):
+        initdict = qydlzwed._getinitdict(vector)
+        encdict = initdict.copy()
+        encoded = np.array([], dtype = str)
+        pos = 0
+
+        while pos < vector.size:
+            subsymbols = str(vector[pos])
+            subsymbolsinencdict = ""
+
+            while subsymbols in encdict and pos < vector.size:
+                subsymbolsinencdict = subsymbols
+                pos += 1
+                if pos < vector.size:
+                    subsymbols += str(vector[pos])
+
+            encoded = np.append(encoded, encdict[subsymbolsinencdict])
+
+            if pos < vector.size:
+                encdict[subsymbols] = "{:b}".format(len(encdict))
+
+                if np.ceil(np.log2(len(encdict))) > len(encoded[-1]):
+                    for symb, code in encdict.items():
+                        encdict[symb] = code.zfill(int(np.ceil(np.log2(len(encdict)))))
+        
+        return initdict, encoded
 
 
 # rgbpixel:     np.ndarray of shape = (3,) and dtype = np.uint8
