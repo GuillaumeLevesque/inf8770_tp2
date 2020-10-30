@@ -28,9 +28,12 @@ class rgbimage(image):
     def initfromyuvimage(self, yuvimage):
         self.width, self.height = yuvimage.size()
         g = yuvimage.y - ((yuvimage.u + yuvimage.v) / 4) # g = y - ((u + v) / 4)
+        # self.g = np.clip(g, 0, 255)
+        # self.r = np.clip(yuvimage.v + self.g, 0, 255) # r = v + g
+        # self.b = np.clip(yuvimage.u + self.g, 0, 255) # b = u + g
+        self.r = np.clip(yuvimage.v + g, 0, 255) # r = v + g
+        self.b = np.clip(yuvimage.u + g, 0, 255) # b = u + g
         self.g = np.clip(g, 0, 255)
-        self.r = yuvimage.v + self.g # r = v + g
-        self.b = yuvimage.u + self.g # b = u + g
         self.r = self.r.astype(np.uint8)
         self.g = self.g.astype(np.uint8)
         self.b = self.b.astype(np.uint8)
@@ -67,8 +70,24 @@ class yuvimage(image):
         self.y = (rgbimage.r + (2 * rgbimage.g) + rgbimage.b) / 4 # y = (r + 2g + b) / 4
         self.u = rgbimage.b - rgbimage.g # u = b - g
         self.v = rgbimage.r - rgbimage.g # v = r - g
+    
+    def initfromyuvsubsampled(self, yuvsubsampled):
+        self.y = yuvsubsampled.y.copy()
+        self.u = np.empty(self.y.shape)
+        self.v = np.empty(self.y.shape)
+        self.width, self.height = yuvsubsampled.size()
 
-class yuvsubsampled:
+        if yuvsubsampled.subsampling == (4, 2, 0):
+            self.u[::2, ::2] = yuvsubsampled.u[:, :]
+            self.u[::2, 1::2] = yuvsubsampled.u[:, :]
+            self.u[1::2, ::2] = yuvsubsampled.u[:, :]
+            self.u[1::2, 1::2] = yuvsubsampled.u[:, :]
+            self.v[::2, ::2] = yuvsubsampled.v[:, :]
+            self.v[::2, 1::2] = yuvsubsampled.v[:, :]
+            self.v[1::2, ::2] = yuvsubsampled.v[:, :]
+            self.v[1::2, 1::2] = yuvsubsampled.v[:, :]
+
+class yuvsubsampled(image):
 
     _supportedsubsampling = [(4, 2, 0), (4, 2, 2)]
     
@@ -76,12 +95,14 @@ class yuvsubsampled:
         if subsampling not in yuvsubsampled._supportedsubsampling:
             raise ValueError("Unsupported subsampling", subsampling, "supported subsampling: ", yuvsubsampled._supportedsubsampling)
 
+        image.__init__(self)
         self.subsampling = subsampling
         self.y = None
         self.u = None
         self.v = None
 
     def initfromyuvimage(self, yuvimage):
+        self.width, self.height = yuvimage.size()
         self.y = yuvimage.y
         if self.subsampling == (4, 2, 0):
             self.u = yuvimage.u[::2, ::2] # keep 1 row in 2 and 1 element in 2 from each row
@@ -91,10 +112,80 @@ class yuvsubsampled:
             self.v = yuvimage.v[:, ::2]
         else:
             print("This was not supposed to happen...")
+    
+    def initfromyuvdwted(self, yuvdwted, subsampling):
+        originalwidth, originalheight = yuvdwted.size()
+        ywidth, yheight, uwidth, uheight, vwidth, vheight = yuvsubsampled._getshape(originalwidth, originalheight, yuvdwted.recursionlevel - 1, subsampling)
+        ylxly = yuvdwted.y.reshape(yheight, ywidth)
+        ulxly = yuvdwted.u.reshape(uheight, uwidth)
+        vlxly = yuvdwted.v.reshape(vheight, vwidth)
+        
+        for i in reversed(range(yuvdwted.recursionlevel)):
+            ywidth, yheight, uwidth, uheight, vwidth, vheight = yuvsubsampled._getshape(originalwidth, originalheight, i, subsampling)
+            ylxly = yuvsubsampled._getdwtoriginal(
+                ylxly,
+                yuvdwted.reconstructiondata[i]["ylxhy"].reshape((yheight, ywidth)),
+                yuvdwted.reconstructiondata[i]["yhxly"].reshape((yheight, ywidth)),
+                yuvdwted.reconstructiondata[i]["yhxhy"].reshape((yheight, ywidth))
+            )
+            ulxly = yuvsubsampled._getdwtoriginal(
+                ulxly,
+                yuvdwted.reconstructiondata[i]["ulxhy"].reshape((uheight, uwidth)),
+                yuvdwted.reconstructiondata[i]["uhxly"].reshape((uheight, uwidth)),
+                yuvdwted.reconstructiondata[i]["uhxhy"].reshape((uheight, uwidth))
+            )
+            vlxly = yuvsubsampled._getdwtoriginal(
+                vlxly,
+                yuvdwted.reconstructiondata[i]["vlxhy"].reshape((vheight, vwidth)),
+                yuvdwted.reconstructiondata[i]["vhxly"].reshape((vheight, vwidth)),
+                yuvdwted.reconstructiondata[i]["vhxhy"].reshape((vheight, vwidth))
+            )
+        
+        self.y = ylxly
+        self.u = ulxly
+        self.v = vlxly
+        self.subsampling = subsampling
+        self.width, self.height = yuvdwted.size()
+    
+    @staticmethod
+    def _getshape(originalwidth, originalheight, recursionlevel, subsampling):
+        ywidth = originalwidth / (2**(recursionlevel + 1))
+        yheight = originalheight / (2**(recursionlevel + 1))
+        
+        if subsampling == (4, 2, 0):
+            uwidth = vwidth = ywidth / 2
+            uheight = vheight = yheight / 2
+        elif subsampling == (4, 2, 2):
+            uwidth = vwidth = ywidth / 2
+            uheight = vheight = yheight
+        else:
+            print("whyyyyy?")
+        
+        return int(ywidth), int(yheight), int(uwidth), int(uheight), int(vwidth), int(vheight)
+    
+    @staticmethod
+    def _getdwtoriginal(lxly, lxhy, hxly, hxhy):
+        height, width = lxly.shape
+        # get lx
+        lx = np.empty((2 * height, width))
+        lx[::2, :] = lxly[:, :] + lxhy[:, :]
+        lx[1::2, :] = lxly[:, :] - lxhy[:, :]
+        #get hx
+        hx = np.empty((2 * height, width))
+        hx[::2, :] = hxly[:, :] + hxhy[:, :]
+        hx[1::2, :] = hxly[:, :] - hxhy[:, :]
+        #get original
+        height, width = lx.shape
+        original = np.empty((height, 2 * width))
+        original[:, ::2] = lx[:, :] + hx[:, :]
+        original[:, 1::2] = lx[:, :] - hx[:, :]
 
-class yuvdwted:
+        return original
+
+class yuvdwted(image):
 
     def __init__(self):
+        image.__init__(self)
         self.recursionlevel = 1
         self.y = None
         self.u = None
@@ -102,6 +193,7 @@ class yuvdwted:
         self.reconstructiondata = []
 
     def initfromyuvsubsampled(self, yuvsubsampled, recursionlevel):
+        self.width, self.height = yuvsubsampled.size()
         self.y = yuvsubsampled.y.copy()
         self.u = yuvsubsampled.u.copy()
         self.v = yuvsubsampled.v.copy()
@@ -146,6 +238,28 @@ class yuvdwted:
                 "vhxly": vhxly,
                 "vhxhy": vhxhy
             })
+    
+    def initfromqyd(self, qyd):
+        self.recursionlevel = qyd.recursionlevel
+        self.y = yuvdwted._dequantize(qyd.y, qyd.deadzone, qyd.step)
+        self.u = yuvdwted._dequantize(qyd.u, qyd.deadzone, qyd.step)
+        self.v = yuvdwted._dequantize(qyd.v, qyd.deadzone, qyd.step)
+        self.reconstructiondata = []
+        self.width, self.height = qyd.size()
+        self.recursionlevel = qyd.recursionlevel
+        
+        for i in qyd.reconstructiondata:
+            self.reconstructiondata.append({
+                "ylxhy": yuvdwted._dequantize(i["ylxhy"], qyd.deadzone, qyd.step),
+                "yhxly": yuvdwted._dequantize(i["yhxly"], qyd.deadzone, qyd.step),
+                "yhxhy": yuvdwted._dequantize(i["yhxhy"], qyd.deadzone, qyd.step),
+                "ulxhy": yuvdwted._dequantize(i["ulxhy"], qyd.deadzone, qyd.step),
+                "uhxly": yuvdwted._dequantize(i["uhxly"], qyd.deadzone, qyd.step),
+                "uhxhy": yuvdwted._dequantize(i["uhxhy"], qyd.deadzone, qyd.step),
+                "vlxhy": yuvdwted._dequantize(i["vlxhy"], qyd.deadzone, qyd.step),
+                "vhxly": yuvdwted._dequantize(i["vhxly"], qyd.deadzone, qyd.step),
+                "vhxhy": yuvdwted._dequantize(i["vhxhy"], qyd.deadzone, qyd.step)
+            })
 
     @staticmethod
     def _filter(channel, ftype, axis):
@@ -186,45 +300,53 @@ class yuvdwted:
                 elif ftype == "highpass":
                     result = (allexceptlastrow - odds) / 2
                 return np.concatenate((result, lastrow), axis = 0)
+    
+    @staticmethod
+    def _dequantize(vector, deadzone, step):
+        return np.array([np.sign(x) * ((deadzone / 2) + (step * (abs(x) - 1 + 0.5))) for x in vector])
 
-class quantifiedyuvdwted:
+class quantizedyuvdwted(image):
 
     def __init__(self):
+        image.__init__(self)
         self.y = None
         self.u = None
         self.v = None
         self.reconstructiondata = []
         self.deadzone = 0
         self.step = 1
+        self.recursionlevel = 1
     
     def initfromyuvdwted(self, yuvdwted, deadzone, step):
-        self.y = quantifiedyuvdwted._quantify(yuvdwted.y.flatten(), deadzone, step)
-        self.u = quantifiedyuvdwted._quantify(yuvdwted.u.flatten(), deadzone, step)
-        self.v = quantifiedyuvdwted._quantify(yuvdwted.v.flatten(), deadzone, step)
+        self.width, self.height = yuvdwted.size()
+        self.y = quantizedyuvdwted._quantize(yuvdwted.y.flatten(), deadzone, step)
+        self.u = quantizedyuvdwted._quantize(yuvdwted.u.flatten(), deadzone, step)
+        self.v = quantizedyuvdwted._quantize(yuvdwted.v.flatten(), deadzone, step)
         self.deadzone = deadzone
         self.step = step
+        self.recursionlevel = yuvdwted.recursionlevel
 
         for i in yuvdwted.reconstructiondata:
             self.reconstructiondata.append({
-                "ylxhy": quantifiedyuvdwted._quantify(i["ylxhy"].flatten(), deadzone, step),
-                "yhxly": quantifiedyuvdwted._quantify(i["yhxly"].flatten(), deadzone, step),
-                "yhxhy": quantifiedyuvdwted._quantify(i["yhxhy"].flatten(), deadzone, step),
-                "ulxhy": quantifiedyuvdwted._quantify(i["ulxhy"].flatten(), deadzone, step),
-                "uhxly": quantifiedyuvdwted._quantify(i["uhxly"].flatten(), deadzone, step),
-                "uhxhy": quantifiedyuvdwted._quantify(i["uhxhy"].flatten(), deadzone, step),
-                "vlxhy": quantifiedyuvdwted._quantify(i["vlxhy"].flatten(), deadzone, step),
-                "vhxly": quantifiedyuvdwted._quantify(i["vhxly"].flatten(), deadzone, step),
-                "vhxhy": quantifiedyuvdwted._quantify(i["vhxhy"].flatten(), deadzone, step)
+                "ylxhy": quantizedyuvdwted._quantize(i["ylxhy"].flatten(), deadzone, step),
+                "yhxly": quantizedyuvdwted._quantize(i["yhxly"].flatten(), deadzone, step),
+                "yhxhy": quantizedyuvdwted._quantize(i["yhxhy"].flatten(), deadzone, step),
+                "ulxhy": quantizedyuvdwted._quantize(i["ulxhy"].flatten(), deadzone, step),
+                "uhxly": quantizedyuvdwted._quantize(i["uhxly"].flatten(), deadzone, step),
+                "uhxhy": quantizedyuvdwted._quantize(i["uhxhy"].flatten(), deadzone, step),
+                "vlxhy": quantizedyuvdwted._quantize(i["vlxhy"].flatten(), deadzone, step),
+                "vhxly": quantizedyuvdwted._quantize(i["vhxly"].flatten(), deadzone, step),
+                "vhxhy": quantizedyuvdwted._quantize(i["vhxhy"].flatten(), deadzone, step)
             })
-        
     
     @staticmethod
-    def _quantify(vector, deadzone, step):
-        return np.array([max(0, math.floor(((x - (deadzone / 2)) / step) + 1)) for x in vector])
+    def _quantize(vector, deadzone, step):
+        return np.array([np.sign(x) * max(0, math.floor(((abs(x) - (deadzone / 2)) / step) + 1)) for x in vector])
 
-class qydlzwed:
+class qydlzwed(image):
 
     def __init__(self):
+        image.__init__(self)
         self.y = None
         self.ydict = None
         self.u = None
@@ -234,6 +356,7 @@ class qydlzwed:
         self.reconstructiondata = []
     
     def initfromqyd(self, qyd):
+        self.width, self.height = qyd.size()
         self.ydict, self.y = qydlzwed._encode(qyd.y)
         self.udict, self.u = qydlzwed._encode(qyd.u)
         self.vdict, self.v = qydlzwed._encode(qyd.v)
@@ -274,8 +397,8 @@ class qydlzwed:
         symbols = np.array([], dtype = int)
         
         for symb in vector:
-            if symb not in symbols:
-                symbols = np.append(symbols, symb)
+            if int(symb) not in symbols:
+                symbols = np.append(symbols, int(symb))
         
         initdict = {}
         symbols.sort()
@@ -292,14 +415,14 @@ class qydlzwed:
         pos = 0
 
         while pos < vector.size:
-            subsymbols = str(vector[pos])
-            subsymbolsinencdict = ""
+            subsymbols = str(int(vector[pos]))
+            subsymbolsinencdict = str(int(vector[pos]))
 
             while subsymbols in encdict and pos < vector.size:
                 subsymbolsinencdict = subsymbols
                 pos += 1
                 if pos < vector.size:
-                    subsymbols += str(vector[pos])
+                    subsymbols += str(int(vector[pos]))
 
             encoded = np.append(encoded, encdict[subsymbolsinencdict])
 
@@ -312,29 +435,71 @@ class qydlzwed:
         
         return initdict, encoded
 
+class compressedimage(image):
 
-# rgbpixel:     np.ndarray of shape = (3,) and dtype = np.uint8
-#               first column is r value, second column is g value, third column is b value
-#
-# returns:      np.ndarray of shape = (3,) and dtype = np.float64
-#               first column is y value, second column is u value, third column is v value
-def rgbpixtoyuvpix(rgbpixel: np.ndarray):
-    rgbpixel = rgbpixel.astype(np.float64)
-    yuvpixel = np.empty((3,), np.float64)
-    yuvpixel[0] = (rgbpixel[0] + (2 * rgbpixel[1]) + rgbpixel[2]) / 4 # y = (r + 2g + b) / 4
-    yuvpixel[1] = rgbpixel[2] - rgbpixel[1] # u = b - g
-    yuvpixel[2] = rgbpixel[0] - rgbpixel[1] # v = r - g
-    return yuvpixel
+    def __init__(self, imread, yuvsubsamp = (4, 2, 0), dwtrecurslevel = 3, quantizdeadzone = 8, quantizstep = 1):
+        image.__init__(self)
+        self.rgbimage = rgbimage()
+        self.yuvimage = yuvimage()
+        self.yuvsubsampled = yuvsubsampled()
+        self.yuvdwted = yuvdwted()
+        self.quantizedyuvdwted = quantizedyuvdwted()
+        self.qydlzwed = qydlzwed()
 
-# yuvpixel:     np.ndarray of shape = (3,) and dtype = np.float64
-#               first column is y value, second column is u value, third column is v value
-#
-# returns:      np.ndarray of shape = (3,) and dtype = np.uint8
-#               first column is r value, second column is g value, third column is b value
-def yuvpixtorgbpix(yuvpixel: np.ndarray):
-    rgbpixel = np.empty((3,), np.float64)
-    g = yuvpixel[0] - ((yuvpixel[1] + yuvpixel[2]) / 4) # g = y - ((u + v) / 4)
-    rgbpixel[1] = np.clip(g, 0, 255)
-    rgbpixel[0] = yuvpixel[2] + rgbpixel[1] # r = v + g
-    rgbpixel[2] = yuvpixel[1] + rgbpixel[1] # b = u + g
-    return rgbpixel.astype(np.uint8)
+        self.yuvimage.initfromimread(imread)
+        self.yuvsubsampled.initfromyuvimage(self.yuvimage)
+        self.yuvdwted.initfromyuvsubsampled(self.yuvsubsampled, dwtrecurslevel)
+        self.quantizedyuvdwted.initfromyuvdwted(self.yuvdwted, quantizdeadzone, quantizstep)
+        self.qydlzwed.initfromqyd(self.quantizedyuvdwted)
+
+    def getprintable(self):
+        tmpyuvdwted = yuvdwted()
+        tmpyuvdwted.initfromqyd(self.quantizedyuvdwted)
+        tmpyuvsubsampled = yuvsubsampled()
+        tmpyuvsubsampled.initfromyuvdwted(tmpyuvdwted, self.yuvsubsampled.subsampling)
+        tmpyuvimage = yuvimage()
+        tmpyuvimage.initfromyuvsubsampled(tmpyuvsubsampled)
+        tmprgbimage = rgbimage()
+        tmprgbimage.initfromyuvimage(tmpyuvimage)
+        printable = tmprgbimage.getprintable()
+        return printable
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# # rgbpixel:     np.ndarray of shape = (3,) and dtype = np.uint8
+# #               first column is r value, second column is g value, third column is b value
+# #
+# # returns:      np.ndarray of shape = (3,) and dtype = np.float64
+# #               first column is y value, second column is u value, third column is v value
+# def rgbpixtoyuvpix(rgbpixel: np.ndarray):
+#     rgbpixel = rgbpixel.astype(np.float64)
+#     yuvpixel = np.empty((3,), np.float64)
+#     yuvpixel[0] = (rgbpixel[0] + (2 * rgbpixel[1]) + rgbpixel[2]) / 4 # y = (r + 2g + b) / 4
+#     yuvpixel[1] = rgbpixel[2] - rgbpixel[1] # u = b - g
+#     yuvpixel[2] = rgbpixel[0] - rgbpixel[1] # v = r - g
+#     return yuvpixel
+
+# # yuvpixel:     np.ndarray of shape = (3,) and dtype = np.float64
+# #               first column is y value, second column is u value, third column is v value
+# #
+# # returns:      np.ndarray of shape = (3,) and dtype = np.uint8
+# #               first column is r value, second column is g value, third column is b value
+# def yuvpixtorgbpix(yuvpixel: np.ndarray):
+#     rgbpixel = np.empty((3,), np.float64)
+#     g = yuvpixel[0] - ((yuvpixel[1] + yuvpixel[2]) / 4) # g = y - ((u + v) / 4)
+#     rgbpixel[1] = np.clip(g, 0, 255)
+#     rgbpixel[0] = yuvpixel[2] + rgbpixel[1] # r = v + g
+#     rgbpixel[2] = yuvpixel[1] + rgbpixel[1] # b = u + g
+#     return rgbpixel.astype(np.uint8)

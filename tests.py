@@ -97,21 +97,70 @@ import libinf8770 as mylib
 
 
 # test qydlzwed
+# imread = py.imread("power.jpg")
+
+# yuvimage = mylib.yuvimage()
+# yuvimage.initfromimread(imread)
+
+# yuvsubsampled = mylib.yuvsubsampled()
+# yuvsubsampled.initfromyuvimage(yuvimage)
+
+# yuvdwted = mylib.yuvdwted()
+# yuvdwted.initfromyuvsubsampled(yuvsubsampled, 3)
+
+# print("yuvdwted.y.shape: ", yuvdwted.y.shape)
+
+# quantifiedyuvdwted = mylib.quantifiedyuvdwted()
+# quantifiedyuvdwted.initfromyuvdwted(yuvdwted, 8, 1)
+
+# qydlzwed = mylib.qydlzwed()
+# qydlzwed.initfromqyd(quantifiedyuvdwted)
+
+# print("qydlzwed.y: ", qydlzwed.y)
+
+
+# test compressedimage
 imread = py.imread("power.jpg")
 
-yuvimage = mylib.yuvimage()
-yuvimage.initfromimread(imread)
+compressedimage = mylib.compressedimage(imread)
 
-yuvsubsampled = mylib.yuvsubsampled()
-yuvsubsampled.initfromyuvimage(yuvimage)
+printable = compressedimage.getprintable()
+py.figure()
+py.imshow(imread)
+py.figure()
+py.imshow(printable)
 
-yuvdwted = mylib.yuvdwted()
-yuvdwted.initfromyuvsubsampled(yuvsubsampled, 3)
+py.show()
 
-quantifiedyuvdwted = mylib.quantifiedyuvdwted()
-quantifiedyuvdwted.initfromyuvdwted(yuvdwted, 8, 1)
 
-qydlzwed = mylib.qydlzwed()
-qydlzwed.initfromqyd(quantifiedyuvdwted)
+# # test intermediaire
+# imread = py.imread("power.jpg")
 
-print("qydlzwed.y: ", qydlzwed.y)
+# yuvimage = mylib.yuvimage()
+# yuvimage.initfromimread(imread)
+
+# yuvsubsampled = mylib.yuvsubsampled()
+# yuvsubsampled.initfromyuvimage(yuvimage)
+
+# yuvdwted = mylib.yuvdwted()
+# yuvdwted.initfromyuvsubsampled(yuvsubsampled, 3)
+
+# qyd = mylib.quantizedyuvdwted()
+# qyd.initfromyuvdwted(yuvdwted, 8, 8)
+
+# yuvdwted2 = mylib.yuvdwted()
+# yuvdwted2.initfromqyd(qyd)
+# yuvsubsampled2 = mylib.yuvsubsampled()
+# yuvsubsampled2.initfromyuvdwted(yuvdwted2, yuvsubsampled.subsampling)
+# yuvimage2 = mylib.yuvimage()
+# yuvimage2.initfromyuvsubsampled(yuvsubsampled2)
+# rgbimage = mylib.rgbimage()
+# rgbimage.initfromyuvimage(yuvimage2)
+
+# printable = rgbimage.getprintable()
+# py.figure()
+# py.imshow(imread)
+# py.figure()
+# py.imshow(printable)
+
+# py.show()
