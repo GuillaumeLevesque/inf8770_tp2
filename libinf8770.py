@@ -464,12 +464,15 @@ class qydlzwed(image):
                 if np.ceil(np.log2(len(encdict))) > len(encoded[-1]):
                     for symb, code in encdict.items():
                         encdict[symb] = code.zfill(int(np.ceil(np.log2(len(encdict)))))
-        # print(initdict)
-        # print("nb elem", len(initdict))
-        # elem_len = len(initdict[(next(iter(initdict)))])
-        # print("elem len", elem_len)
-        size = len(initdict) * len(initdict[(next(iter(initdict)))]) + (len(initdict) * 8)
-        return initdict, encoded, size
+        print(initdict)
+        print("nb elem", len(initdict))
+        elem_len = len(initdict[(next(iter(initdict)))])
+        print("elem len", elem_len)
+        size_bit = len(initdict) * len(initdict[(next(iter(initdict)))]) + (len(initdict) * 8)
+        print(encoded)
+        for code in encoded:
+            size_bit += len(code)
+        return initdict, encoded, size_bit
 
 class compressedimage(image):
     def __init__(self, imread, yuvsubsamp = (4, 2, 0), dwtrecurslevel = 3, quantizdeadzone = 4, quantizstep = 1):
