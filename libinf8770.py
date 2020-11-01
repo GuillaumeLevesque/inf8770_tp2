@@ -87,10 +87,18 @@ class yuvimage(image):
             self.v[1::2, ::2] = yuvsubsampled.v[:, :]
             self.v[1::2, 1::2] = yuvsubsampled.v[:, :]
 
+        elif yuvsubsampled.subsampling == (4, 2, 2):
+            self.u[:, ::2] = yuvsubsampled.u[:, :]
+            self.u[:, 1::2] = yuvsubsampled.u[:, :]
+            self.v[:, ::2] = yuvsubsampled.v[:, :]
+            self.v[:, 1::2] = yuvsubsampled.v[:, :]
+        elif yuvsubsampled.subsampling == (4, 4, 4):
+            self.u = yuvsubsampled.u.copy()
+            self.v = yuvsubsampled.v.copy()
+
 class yuvsubsampled(image):
 
-    _supportedsubsampling = [(4, 2, 0), (4, 2, 2)]
-    
+    _supportedsubsampling = [(4, 2, 0), (4, 2, 2), (4, 4, 4)]
     def __init__(self, subsampling: tuple = (4, 2, 0)):
         if subsampling not in yuvsubsampled._supportedsubsampling:
             raise ValueError("Unsupported subsampling", subsampling, "supported subsampling: ", yuvsubsampled._supportedsubsampling)
@@ -104,12 +112,16 @@ class yuvsubsampled(image):
     def initfromyuvimage(self, yuvimage):
         self.width, self.height = yuvimage.size()
         self.y = yuvimage.y
+        print("subsample:\t\t", self.subsampling)
         if self.subsampling == (4, 2, 0):
             self.u = yuvimage.u[::2, ::2] # keep 1 row in 2 and 1 element in 2 from each row
             self.v = yuvimage.v[::2, ::2]
         elif self.subsampling == (4, 2, 2):
             self.u = yuvimage.u[:, ::2] # keep every row and 1 element in 2 from each row
             self.v = yuvimage.v[:, ::2]
+        elif self.subsampling == (4, 4, 4):
+            self.u = yuvimage.u
+            self.v = yuvimage.v
         else:
             print("This was not supposed to happen...")
     
@@ -157,6 +169,9 @@ class yuvsubsampled(image):
             uheight = vheight = yheight / 2
         elif subsampling == (4, 2, 2):
             uwidth = vwidth = ywidth / 2
+            uheight = vheight = yheight
+        elif subsampling == (4, 4, 4):
+            uwidth = vwidth = ywidth
             uheight = vheight = yheight
         else:
             print("whyyyyy?")
@@ -357,20 +372,33 @@ class qydlzwed(image):
     
     def initfromqyd(self, qyd):
         self.width, self.height = qyd.size()
-        self.ydict, self.y = qydlzwed._encode(qyd.y)
-        self.udict, self.u = qydlzwed._encode(qyd.u)
-        self.vdict, self.v = qydlzwed._encode(qyd.v)
+        encoded_sizes = []
+        self.ydict, self.y, size_y = qydlzwed._encode(qyd.y)
+        encoded_sizes.append(size_y)
+        self.udict, self.u, size_u = qydlzwed._encode(qyd.u)
+        encoded_sizes.append(size_u)
+        self.vdict, self.v, size_v = qydlzwed._encode(qyd.v)
+        encoded_sizes.append(size_v)
 
         for i in qyd.reconstructiondata:
-            ylxhydict, ylxhy = qydlzwed._encode(i["ylxhy"])
-            yhxlydict, yhxly = qydlzwed._encode(i["yhxly"])
-            yhxhydict, yhxhy = qydlzwed._encode(i["yhxhy"])
-            ulxhydict, ulxhy = qydlzwed._encode(i["ulxhy"])
-            uhxlydict, uhxly = qydlzwed._encode(i["uhxly"])
-            uhxhydict, uhxhy = qydlzwed._encode(i["uhxhy"])
-            vlxhydict, vlxhy = qydlzwed._encode(i["vlxhy"])
-            vhxlydict, vhxly = qydlzwed._encode(i["vhxly"])
-            vhxhydict, vhxhy = qydlzwed._encode(i["vhxhy"])
+            ylxhydict, ylxhy, size_0 = qydlzwed._encode(i["ylxhy"])
+            encoded_sizes.append(size_0)
+            yhxlydict, yhxly, size_1 = qydlzwed._encode(i["yhxly"])
+            encoded_sizes.append(size_1)
+            yhxhydict, yhxhy, size_2 = qydlzwed._encode(i["yhxhy"])
+            encoded_sizes.append(size_2)
+            ulxhydict, ulxhy, size_3 = qydlzwed._encode(i["ulxhy"])
+            encoded_sizes.append(size_3)
+            uhxlydict, uhxly, size_4 = qydlzwed._encode(i["uhxly"])
+            encoded_sizes.append(size_4)
+            uhxhydict, uhxhy, size_5 = qydlzwed._encode(i["uhxhy"])
+            encoded_sizes.append(size_5)
+            vlxhydict, vlxhy, size_6 = qydlzwed._encode(i["vlxhy"])
+            encoded_sizes.append(size_6)
+            vhxlydict, vhxly, size_7 = qydlzwed._encode(i["vhxly"])
+            encoded_sizes.append(size_7)
+            vhxhydict, vhxhy, size_8 = qydlzwed._encode(i["vhxhy"])
+            encoded_sizes.append(size_8)
             self.reconstructiondata.append({
                 "ylxhy": ylxhy,
                 "ylxhydict": ylxhydict,
@@ -391,6 +419,10 @@ class qydlzwed(image):
                 "vhxhy": vhxhy,
                 "vhxhydict": vhxhydict,
             })
+        total_encoded_size = 0
+        for size in encoded_sizes:
+            total_encoded_size += size
+        print("encoded size:\t", total_encoded_size/1000, " kilobits")
     
     @staticmethod
     def _getinitdict(vector):
@@ -432,16 +464,21 @@ class qydlzwed(image):
                 if np.ceil(np.log2(len(encdict))) > len(encoded[-1]):
                     for symb, code in encdict.items():
                         encdict[symb] = code.zfill(int(np.ceil(np.log2(len(encdict)))))
-        
-        return initdict, encoded
+        # print(initdict)
+        # print("nb elem", len(initdict))
+        # elem_len = len(initdict[(next(iter(initdict)))])
+        # print("elem len", elem_len)
+        size = len(initdict) * len(initdict[(next(iter(initdict)))]) + (len(initdict) * 8)
+        return initdict, encoded, size
 
 class compressedimage(image):
-
-    def __init__(self, imread, yuvsubsamp = (4, 2, 0), dwtrecurslevel = 3, quantizdeadzone = 8, quantizstep = 1):
+    def __init__(self, imread, yuvsubsamp = (4, 2, 0), dwtrecurslevel = 3, quantizdeadzone = 4, quantizstep = 1):
+        print("dwt recursions:\t", dwtrecurslevel)
+        print("deadzone:\t\t", quantizdeadzone)
         image.__init__(self)
         self.rgbimage = rgbimage()
         self.yuvimage = yuvimage()
-        self.yuvsubsampled = yuvsubsampled()
+        self.yuvsubsampled = yuvsubsampled(yuvsubsamp)
         self.yuvdwted = yuvdwted()
         self.quantizedyuvdwted = quantizedyuvdwted()
         self.qydlzwed = qydlzwed()
@@ -463,43 +500,3 @@ class compressedimage(image):
         tmprgbimage.initfromyuvimage(tmpyuvimage)
         printable = tmprgbimage.getprintable()
         return printable
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# # rgbpixel:     np.ndarray of shape = (3,) and dtype = np.uint8
-# #               first column is r value, second column is g value, third column is b value
-# #
-# # returns:      np.ndarray of shape = (3,) and dtype = np.float64
-# #               first column is y value, second column is u value, third column is v value
-# def rgbpixtoyuvpix(rgbpixel: np.ndarray):
-#     rgbpixel = rgbpixel.astype(np.float64)
-#     yuvpixel = np.empty((3,), np.float64)
-#     yuvpixel[0] = (rgbpixel[0] + (2 * rgbpixel[1]) + rgbpixel[2]) / 4 # y = (r + 2g + b) / 4
-#     yuvpixel[1] = rgbpixel[2] - rgbpixel[1] # u = b - g
-#     yuvpixel[2] = rgbpixel[0] - rgbpixel[1] # v = r - g
-#     return yuvpixel
-
-# # yuvpixel:     np.ndarray of shape = (3,) and dtype = np.float64
-# #               first column is y value, second column is u value, third column is v value
-# #
-# # returns:      np.ndarray of shape = (3,) and dtype = np.uint8
-# #               first column is r value, second column is g value, third column is b value
-# def yuvpixtorgbpix(yuvpixel: np.ndarray):
-#     rgbpixel = np.empty((3,), np.float64)
-#     g = yuvpixel[0] - ((yuvpixel[1] + yuvpixel[2]) / 4) # g = y - ((u + v) / 4)
-#     rgbpixel[1] = np.clip(g, 0, 255)
-#     rgbpixel[0] = yuvpixel[2] + rgbpixel[1] # r = v + g
-#     rgbpixel[2] = yuvpixel[1] + rgbpixel[1] # b = u + g
-#     return rgbpixel.astype(np.uint8)
