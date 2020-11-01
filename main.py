@@ -9,7 +9,7 @@ print("original size:\t", (len(imread) * len(imread[0] * 3 * 8))/1000, " kilobit
 py.figure()
 py.imshow(imread)
 
-compressedimage = mylib.compressedimage(imread, (4,2,0), 3, 4)
+compressedimage = mylib.compressedimage(imread, (4,2,0), 6, 32)
 
 printable = compressedimage.getprintable()
 py.figure()

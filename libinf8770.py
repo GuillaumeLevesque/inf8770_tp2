@@ -206,6 +206,9 @@ class yuvdwted(image):
         self.u = None
         self.v = None
         self.reconstructiondata = []
+        self.combinedy = None
+        self.combinedu = None
+        self.combinedv = None
 
     def initfromyuvsubsampled(self, yuvsubsampled, recursionlevel):
         self.width, self.height = yuvsubsampled.size()
@@ -253,6 +256,23 @@ class yuvdwted(image):
                 "vhxly": vhxly,
                 "vhxhy": vhxhy
             })
+        
+        tmpy = self.y.copy()
+        tmpu = self.u.copy()
+        tmpv = self.v.copy()
+        for i in reversed(self.reconstructiondata):
+            topy = np.concatenate((tmpy, i["ylxhy"]), axis = 1)
+            bottomy = np.concatenate((i["yhxly"], i["yhxhy"]), axis = 1)
+            tmpy = np.concatenate((topy, bottomy), axis = 0)
+            topu = np.concatenate((tmpu, i["ulxhy"]), axis = 1)
+            bottomu = np.concatenate((i["uhxly"], i["uhxhy"]), axis = 1)
+            tmpu = np.concatenate((topu, bottomu), axis = 0)
+            topv = np.concatenate((tmpv, i["vlxhy"]), axis = 1)
+            bottomv = np.concatenate((i["vhxly"], i["vhxhy"]), axis = 1)
+            tmpv = np.concatenate((topv, bottomv), axis = 0)
+        self.combinedy = tmpy
+        self.combinedu = tmpu
+        self.combinedv = tmpv
     
     def initfromqyd(self, qyd):
         self.recursionlevel = qyd.recursionlevel
@@ -331,6 +351,9 @@ class quantizedyuvdwted(image):
         self.deadzone = 0
         self.step = 1
         self.recursionlevel = 1
+        self.ycombined = None
+        self.ucombined = None
+        self.vcombined = None
     
     def initfromyuvdwted(self, yuvdwted, deadzone, step):
         self.width, self.height = yuvdwted.size()
@@ -353,6 +376,10 @@ class quantizedyuvdwted(image):
                 "vhxly": quantizedyuvdwted._quantize(i["vhxly"].flatten(), deadzone, step),
                 "vhxhy": quantizedyuvdwted._quantize(i["vhxhy"].flatten(), deadzone, step)
             })
+        
+        self.ycombined = quantizedyuvdwted._quantize(yuvdwted.combinedy.flatten(), deadzone, step)
+        self.ucombined = quantizedyuvdwted._quantize(yuvdwted.combinedu.flatten(), deadzone, step)
+        self.vcombined = quantizedyuvdwted._quantize(yuvdwted.combinedv.flatten(), deadzone, step)
     
     @staticmethod
     def _quantize(vector, deadzone, step):
@@ -369,6 +396,12 @@ class qydlzwed(image):
         self.v = None
         self.vdict = None
         self.reconstructiondata = []
+        self.ycombined = None
+        self.ycombdict = None
+        self.ucombined = None
+        self.ucombdict = None
+        self.vcombined = None
+        self.vcombdict = None
     
     def initfromqyd(self, qyd):
         self.width, self.height = qyd.size()
@@ -423,6 +456,18 @@ class qydlzwed(image):
         for size in encoded_sizes:
             total_encoded_size += size
         print("encoded size:\t", total_encoded_size/1000, " kilobits")
+
+        encoded_sizes_combined = []
+        self.ycombdict, self.ycombined, size_y_combined = qydlzwed._encode(qyd.ycombined)
+        encoded_sizes_combined.append(size_y_combined)
+        self.ucombdict, self.ucombined, size_u_combined = qydlzwed._encode(qyd.ucombined)
+        encoded_sizes_combined.append(size_u_combined)
+        self.vcombdict, self.vcombined, size_v_combined = qydlzwed._encode(qyd.vcombined)
+        encoded_sizes_combined.append(size_v_combined)
+        total_encoded_size_combined = 0
+        for size in encoded_sizes_combined:
+            total_encoded_size_combined += size
+        print("encoded size combined:\t", total_encoded_size_combined/1000, " kilobits")
     
     @staticmethod
     def _getinitdict(vector):
@@ -464,14 +509,15 @@ class qydlzwed(image):
                 if np.ceil(np.log2(len(encdict))) > len(encoded[-1]):
                     for symb, code in encdict.items():
                         encdict[symb] = code.zfill(int(np.ceil(np.log2(len(encdict)))))
-        print(initdict)
-        print("nb elem", len(initdict))
+        # print(vector)
+        # print("len(vector): ", len(vector))
         elem_len = len(initdict[(next(iter(initdict)))])
-        print("elem len", elem_len)
-        size_bit = len(initdict) * len(initdict[(next(iter(initdict)))]) + (len(initdict) * 8)
-        print(encoded)
+        # print("dict symb len: ", elem_len)
+        size_bit = len(initdict) * len(initdict[(next(iter(initdict)))]) + (len(initdict) * 8) # initdict size in bits
+        # print("size dict:", size_bit)
         for code in encoded:
             size_bit += len(code)
+        # print("size encoded: ", size_bit)
         return initdict, encoded, size_bit
 
 class compressedimage(image):
