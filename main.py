@@ -16,7 +16,7 @@ compressedsize = compressedimage.getcompressedsize()
 
 print("uncompressed size:\t", uncompressedsize, " kb")
 print("compressed size:\t", compressedsize, " kb")
-print("compression rate:\t{0:1.2f}".format(1 - (compressedsize / uncompressedsize)))
+print("compression rate:\t{0:1.4f}".format(1 - (compressedsize / uncompressedsize)))
 
 printable = compressedimage.getprintable()
 py.figure()
