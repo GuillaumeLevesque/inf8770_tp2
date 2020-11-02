@@ -3,13 +3,16 @@ import matplotlib.pyplot as py
 
 import libinf8770 as mylib
 
-# compressedimage
-imread = py.imread("cage.jpg")
-print("original size:\t", (len(imread) * len(imread[0]) * 3 * 8)/1000, " kilobits")
+
+imread = py.imread("power.jpg")
+
 py.figure()
 py.imshow(imread)
 
-compressedimage = mylib.compressedimage(imread, (4,2,0), 3, 2)
+compressedimage = mylib.compressedimage(imread, yuvsubsamp = (4,2,0), dwtrecurslevel = 3, quantizdeadzone = 2, quantizstep = 2)
+
+print("Uncompressed size:\t", compressedimage.getuncompressedsize(), " kb")
+print("Compressed size:\t", compressedimage.getcompressedsize(), " kb")
 
 printable = compressedimage.getprintable()
 py.figure()

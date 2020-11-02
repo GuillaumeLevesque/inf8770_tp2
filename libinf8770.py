@@ -28,9 +28,6 @@ class rgbimage(image):
     def initfromyuvimage(self, yuvimage):
         self.width, self.height = yuvimage.size()
         g = yuvimage.y - ((yuvimage.u + yuvimage.v) / 4) # g = y - ((u + v) / 4)
-        # self.g = np.clip(g, 0, 255)
-        # self.r = np.clip(yuvimage.v + self.g, 0, 255) # r = v + g
-        # self.b = np.clip(yuvimage.u + self.g, 0, 255) # b = u + g
         self.r = np.clip(yuvimage.v + g, 0, 255) # r = v + g
         self.b = np.clip(yuvimage.u + g, 0, 255) # b = u + g
         self.g = np.clip(g, 0, 255)
@@ -112,7 +109,7 @@ class yuvsubsampled(image):
     def initfromyuvimage(self, yuvimage):
         self.width, self.height = yuvimage.size()
         self.y = yuvimage.y
-        print("subsample:\t\t", self.subsampling)
+        
         if self.subsampling == (4, 2, 0):
             self.u = yuvimage.u[::2, ::2] # keep 1 row in 2 and 1 element in 2 from each row
             self.v = yuvimage.v[::2, ::2]
@@ -206,9 +203,6 @@ class yuvdwted(image):
         self.u = None
         self.v = None
         self.reconstructiondata = []
-        self.combinedy = None
-        self.combinedu = None
-        self.combinedv = None
 
     def initfromyuvsubsampled(self, yuvsubsampled, recursionlevel):
         self.width, self.height = yuvsubsampled.size()
@@ -256,23 +250,6 @@ class yuvdwted(image):
                 "vhxly": vhxly,
                 "vhxhy": vhxhy
             })
-        
-        tmpy = self.y.copy()
-        tmpu = self.u.copy()
-        tmpv = self.v.copy()
-        for i in reversed(self.reconstructiondata):
-            topy = np.concatenate((tmpy, i["ylxhy"]), axis = 1)
-            bottomy = np.concatenate((i["yhxly"], i["yhxhy"]), axis = 1)
-            tmpy = np.concatenate((topy, bottomy), axis = 0)
-            topu = np.concatenate((tmpu, i["ulxhy"]), axis = 1)
-            bottomu = np.concatenate((i["uhxly"], i["uhxhy"]), axis = 1)
-            tmpu = np.concatenate((topu, bottomu), axis = 0)
-            topv = np.concatenate((tmpv, i["vlxhy"]), axis = 1)
-            bottomv = np.concatenate((i["vhxly"], i["vhxhy"]), axis = 1)
-            tmpv = np.concatenate((topv, bottomv), axis = 0)
-        self.combinedy = tmpy
-        self.combinedu = tmpu
-        self.combinedv = tmpv
     
     def initfromqyd(self, qyd):
         self.recursionlevel = qyd.recursionlevel
@@ -351,9 +328,6 @@ class quantizedyuvdwted(image):
         self.deadzone = 0
         self.step = 1
         self.recursionlevel = 1
-        self.ycombined = None
-        self.ucombined = None
-        self.vcombined = None
     
     def initfromyuvdwted(self, yuvdwted, deadzone, step):
         self.width, self.height = yuvdwted.size()
@@ -376,10 +350,6 @@ class quantizedyuvdwted(image):
                 "vhxly": quantizedyuvdwted._quantize(i["vhxly"].flatten(), deadzone, step),
                 "vhxhy": quantizedyuvdwted._quantize(i["vhxhy"].flatten(), deadzone, step)
             })
-        
-        self.ycombined = quantizedyuvdwted._quantize(yuvdwted.combinedy.flatten(), deadzone, step)
-        self.ucombined = quantizedyuvdwted._quantize(yuvdwted.combinedu.flatten(), deadzone, step)
-        self.vcombined = quantizedyuvdwted._quantize(yuvdwted.combinedv.flatten(), deadzone, step)
     
     @staticmethod
     def _quantize(vector, deadzone, step):
@@ -396,42 +366,23 @@ class qydlzwed(image):
         self.v = None
         self.vdict = None
         self.reconstructiondata = []
-        self.ycombined = None
-        self.ycombdict = None
-        self.ucombined = None
-        self.ucombdict = None
-        self.vcombined = None
-        self.vcombdict = None
     
     def initfromqyd(self, qyd):
         self.width, self.height = qyd.size()
-        encoded_sizes = []
-        self.ydict, self.y, size_y = qydlzwed._encode(qyd.y)
-        encoded_sizes.append(size_y)
-        self.udict, self.u, size_u = qydlzwed._encode(qyd.u)
-        encoded_sizes.append(size_u)
-        self.vdict, self.v, size_v = qydlzwed._encode(qyd.v)
-        encoded_sizes.append(size_v)
+        self.ydict, self.y = qydlzwed._encode(qyd.y)
+        self.udict, self.u = qydlzwed._encode(qyd.u)
+        self.vdict, self.v = qydlzwed._encode(qyd.v)
 
         for i in qyd.reconstructiondata:
-            ylxhydict, ylxhy, size_0 = qydlzwed._encode(i["ylxhy"])
-            encoded_sizes.append(size_0)
-            yhxlydict, yhxly, size_1 = qydlzwed._encode(i["yhxly"])
-            encoded_sizes.append(size_1)
-            yhxhydict, yhxhy, size_2 = qydlzwed._encode(i["yhxhy"])
-            encoded_sizes.append(size_2)
-            ulxhydict, ulxhy, size_3 = qydlzwed._encode(i["ulxhy"])
-            encoded_sizes.append(size_3)
-            uhxlydict, uhxly, size_4 = qydlzwed._encode(i["uhxly"])
-            encoded_sizes.append(size_4)
-            uhxhydict, uhxhy, size_5 = qydlzwed._encode(i["uhxhy"])
-            encoded_sizes.append(size_5)
-            vlxhydict, vlxhy, size_6 = qydlzwed._encode(i["vlxhy"])
-            encoded_sizes.append(size_6)
-            vhxlydict, vhxly, size_7 = qydlzwed._encode(i["vhxly"])
-            encoded_sizes.append(size_7)
-            vhxhydict, vhxhy, size_8 = qydlzwed._encode(i["vhxhy"])
-            encoded_sizes.append(size_8)
+            ylxhydict, ylxhy = qydlzwed._encode(i["ylxhy"])
+            yhxlydict, yhxly = qydlzwed._encode(i["yhxly"])
+            yhxhydict, yhxhy = qydlzwed._encode(i["yhxhy"])
+            ulxhydict, ulxhy = qydlzwed._encode(i["ulxhy"])
+            uhxlydict, uhxly = qydlzwed._encode(i["uhxly"])
+            uhxhydict, uhxhy = qydlzwed._encode(i["uhxhy"])
+            vlxhydict, vlxhy = qydlzwed._encode(i["vlxhy"])
+            vhxlydict, vhxly = qydlzwed._encode(i["vhxly"])
+            vhxhydict, vhxhy = qydlzwed._encode(i["vhxhy"])
             self.reconstructiondata.append({
                 "ylxhy": ylxhy,
                 "ylxhydict": ylxhydict,
@@ -452,22 +403,6 @@ class qydlzwed(image):
                 "vhxhy": vhxhy,
                 "vhxhydict": vhxhydict,
             })
-        total_encoded_size = 0
-        for size in encoded_sizes:
-            total_encoded_size += size
-        print("encoded size:\t", total_encoded_size/1000, " kilobits")
-
-        encoded_sizes_combined = []
-        self.ycombdict, self.ycombined, size_y_combined = qydlzwed._encode(qyd.ycombined)
-        encoded_sizes_combined.append(size_y_combined)
-        self.ucombdict, self.ucombined, size_u_combined = qydlzwed._encode(qyd.ucombined)
-        encoded_sizes_combined.append(size_u_combined)
-        self.vcombdict, self.vcombined, size_v_combined = qydlzwed._encode(qyd.vcombined)
-        encoded_sizes_combined.append(size_v_combined)
-        total_encoded_size_combined = 0
-        for size in encoded_sizes_combined:
-            total_encoded_size_combined += size
-        print("encoded size combined:\t", total_encoded_size_combined/1000, " kilobits")
     
     @staticmethod
     def _getinitdict(vector):
@@ -509,21 +444,25 @@ class qydlzwed(image):
                 if np.ceil(np.log2(len(encdict))) > len(encoded[-1]):
                     for symb, code in encdict.items():
                         encdict[symb] = code.zfill(int(np.ceil(np.log2(len(encdict)))))
-        # print(vector)
-        # print("len(vector): ", len(vector))
-        elem_len = len(initdict[(next(iter(initdict)))])
-        # print("dict symb len: ", elem_len)
-        size_bit = len(initdict) * len(initdict[(next(iter(initdict)))]) + (len(initdict) * 8) # initdict size in bits
-        # print("size dict:", size_bit)
+        
+        return initdict, encoded
+    
+    @staticmethod
+    def getsize(initdict, encoded):
+        size = len(initdict) * len(initdict[(next(iter(initdict)))]) + (len(initdict) * 9) # initdict size in bits
+
         for code in encoded:
-            size_bit += len(code)
-        # print("size encoded: ", size_bit)
-        return initdict, encoded, size_bit
+            size += len(code)
+        
+        return size
 
 class compressedimage(image):
     def __init__(self, imread, yuvsubsamp = (4, 2, 0), dwtrecurslevel = 3, quantizdeadzone = 4, quantizstep = 1):
-        print("dwt recursions:\t", dwtrecurslevel)
-        print("deadzone:\t\t", quantizdeadzone)
+        print("subsampling:\t\t", yuvsubsamp)
+        print("dwt recursions:\t\t", dwtrecurslevel)
+        print("quantizer deadzone:\t", quantizdeadzone)
+        print("quantizer step:\t\t", quantizstep)
+
         image.__init__(self)
         self.rgbimage = rgbimage()
         self.yuvimage = yuvimage()
@@ -533,6 +472,7 @@ class compressedimage(image):
         self.qydlzwed = qydlzwed()
 
         self.yuvimage.initfromimread(imread)
+        self.width, self.height = self.yuvimage.size()
         self.yuvsubsampled.initfromyuvimage(self.yuvimage)
         self.yuvdwted.initfromyuvsubsampled(self.yuvsubsampled, dwtrecurslevel)
         self.quantizedyuvdwted.initfromyuvdwted(self.yuvdwted, quantizdeadzone, quantizstep)
@@ -549,3 +489,25 @@ class compressedimage(image):
         tmprgbimage.initfromyuvimage(tmpyuvimage)
         printable = tmprgbimage.getprintable()
         return printable
+    
+    def getuncompressedsize(self):
+        return self.width * self.height * 3 * 8 / 1000 # in kilobits
+    
+    def getcompressedsize(self):
+        size = 0
+        size += qydlzwed.getsize(self.qydlzwed.ydict, self.qydlzwed.y)
+        size += qydlzwed.getsize(self.qydlzwed.udict, self.qydlzwed.u)
+        size += qydlzwed.getsize(self.qydlzwed.vdict, self.qydlzwed.v)
+
+        for i in self.qydlzwed.reconstructiondata:
+            size += qydlzwed.getsize(i["ylxhydict"], i["ylxhy"])
+            size += qydlzwed.getsize(i["yhxlydict"], i["yhxly"])
+            size += qydlzwed.getsize(i["yhxhydict"], i["yhxhy"])
+            size += qydlzwed.getsize(i["ulxhydict"], i["ulxhy"])
+            size += qydlzwed.getsize(i["uhxlydict"], i["uhxly"])
+            size += qydlzwed.getsize(i["uhxhydict"], i["uhxhy"])
+            size += qydlzwed.getsize(i["vlxhydict"], i["vlxhy"])
+            size += qydlzwed.getsize(i["vhxlydict"], i["vhxly"])
+            size += qydlzwed.getsize(i["vhxhydict"], i["vhxhy"])
+        
+        return size / 1000 # in kilobits
