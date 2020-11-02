@@ -4,15 +4,19 @@ import matplotlib.pyplot as py
 import libinf8770 as mylib
 
 
-imread = py.imread("power.jpg")
+imread = py.imread("deg.jpg")
 
 py.figure()
 py.imshow(imread)
 
 compressedimage = mylib.compressedimage(imread, yuvsubsamp = (4,2,0), dwtrecurslevel = 3, quantizdeadzone = 2, quantizstep = 2)
 
-print("Uncompressed size:\t", compressedimage.getuncompressedsize(), " kb")
-print("Compressed size:\t", compressedimage.getcompressedsize(), " kb")
+uncompressedsize = compressedimage.getuncompressedsize()
+compressedsize = compressedimage.getcompressedsize()
+
+print("uncompressed size:\t", uncompressedsize, " kb")
+print("compressed size:\t", compressedsize, " kb")
+print("compression rate:\t{0:1.2f}".format(1 - (compressedsize / uncompressedsize)))
 
 printable = compressedimage.getprintable()
 py.figure()
