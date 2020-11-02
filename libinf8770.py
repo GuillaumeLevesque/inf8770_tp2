@@ -25,11 +25,11 @@ class rgbimage(image):
         self.g = imread[:, :, 1]
         self.b = imread[:, :, 2]
 
-    def initfromyuvimage(self, yuvimage):
-        self.width, self.height = yuvimage.size()
-        g = yuvimage.y - ((yuvimage.u + yuvimage.v) / 4) # g = y - ((u + v) / 4)
-        self.r = np.clip(yuvimage.v + g, 0, 255) # r = v + g
-        self.b = np.clip(yuvimage.u + g, 0, 255) # b = u + g
+    def initfromyuv(self, yuv):
+        self.width, self.height = yuv.size()
+        g = yuv.y - ((yuv.u + yuv.v) / 4) # g = y - ((u + v) / 4)
+        self.r = np.clip(yuv.v + g, 0, 255) # r = v + g
+        self.b = np.clip(yuv.u + g, 0, 255) # b = u + g
         self.g = np.clip(g, 0, 255)
         self.r = self.r.astype(np.uint8)
         self.g = self.g.astype(np.uint8)
@@ -44,7 +44,7 @@ class rgbimage(image):
                 pixel[2] = self.b[y, x]
         return printable
 
-class yuvimage(image):
+class yuv(image):
 
     def __init__(self):
         image.__init__(self)
@@ -68,37 +68,37 @@ class yuvimage(image):
         self.u = rgbimage.b - rgbimage.g # u = b - g
         self.v = rgbimage.r - rgbimage.g # v = r - g
     
-    def initfromyuvsubsampled(self, yuvsubsampled):
-        self.y = yuvsubsampled.y.copy()
+    def initfromsubsample(self, subsample):
+        self.y = subsample.y.copy()
         self.u = np.empty(self.y.shape)
         self.v = np.empty(self.y.shape)
-        self.width, self.height = yuvsubsampled.size()
+        self.width, self.height = subsample.size()
 
-        if yuvsubsampled.subsampling == (4, 2, 0):
-            self.u[::2, ::2] = yuvsubsampled.u[:, :]
-            self.u[::2, 1::2] = yuvsubsampled.u[:, :]
-            self.u[1::2, ::2] = yuvsubsampled.u[:, :]
-            self.u[1::2, 1::2] = yuvsubsampled.u[:, :]
-            self.v[::2, ::2] = yuvsubsampled.v[:, :]
-            self.v[::2, 1::2] = yuvsubsampled.v[:, :]
-            self.v[1::2, ::2] = yuvsubsampled.v[:, :]
-            self.v[1::2, 1::2] = yuvsubsampled.v[:, :]
+        if subsample.subsampling == (4, 2, 0):
+            self.u[::2, ::2] = subsample.u[:, :]
+            self.u[::2, 1::2] = subsample.u[:, :]
+            self.u[1::2, ::2] = subsample.u[:, :]
+            self.u[1::2, 1::2] = subsample.u[:, :]
+            self.v[::2, ::2] = subsample.v[:, :]
+            self.v[::2, 1::2] = subsample.v[:, :]
+            self.v[1::2, ::2] = subsample.v[:, :]
+            self.v[1::2, 1::2] = subsample.v[:, :]
 
-        elif yuvsubsampled.subsampling == (4, 2, 2):
-            self.u[:, ::2] = yuvsubsampled.u[:, :]
-            self.u[:, 1::2] = yuvsubsampled.u[:, :]
-            self.v[:, ::2] = yuvsubsampled.v[:, :]
-            self.v[:, 1::2] = yuvsubsampled.v[:, :]
-        elif yuvsubsampled.subsampling == (4, 4, 4):
-            self.u = yuvsubsampled.u.copy()
-            self.v = yuvsubsampled.v.copy()
+        elif subsample.subsampling == (4, 2, 2):
+            self.u[:, ::2] = subsample.u[:, :]
+            self.u[:, 1::2] = subsample.u[:, :]
+            self.v[:, ::2] = subsample.v[:, :]
+            self.v[:, 1::2] = subsample.v[:, :]
+        elif subsample.subsampling == (4, 4, 4):
+            self.u = subsample.u.copy()
+            self.v = subsample.v.copy()
 
-class yuvsubsampled(image):
+class subsample(image):
 
     _supportedsubsampling = [(4, 2, 0), (4, 2, 2), (4, 4, 4)]
     def __init__(self, subsampling: tuple = (4, 2, 0)):
-        if subsampling not in yuvsubsampled._supportedsubsampling:
-            raise ValueError("Unsupported subsampling", subsampling, "supported subsampling: ", yuvsubsampled._supportedsubsampling)
+        if subsampling not in subsample._supportedsubsampling:
+            raise ValueError("Unsupported subsampling", subsampling, "supported subsampling: ", subsample._supportedsubsampling)
 
         image.__init__(self)
         self.subsampling = subsampling
@@ -106,55 +106,55 @@ class yuvsubsampled(image):
         self.u = None
         self.v = None
 
-    def initfromyuvimage(self, yuvimage):
-        self.width, self.height = yuvimage.size()
-        self.y = yuvimage.y
+    def initfromyuv(self, yuv):
+        self.width, self.height = yuv.size()
+        self.y = yuv.y
         
         if self.subsampling == (4, 2, 0):
-            self.u = yuvimage.u[::2, ::2] # keep 1 row in 2 and 1 element in 2 from each row
-            self.v = yuvimage.v[::2, ::2]
+            self.u = yuv.u[::2, ::2] # keep 1 row in 2 and 1 element in 2 from each row
+            self.v = yuv.v[::2, ::2]
         elif self.subsampling == (4, 2, 2):
-            self.u = yuvimage.u[:, ::2] # keep every row and 1 element in 2 from each row
-            self.v = yuvimage.v[:, ::2]
+            self.u = yuv.u[:, ::2] # keep every row and 1 element in 2 from each row
+            self.v = yuv.v[:, ::2]
         elif self.subsampling == (4, 4, 4):
-            self.u = yuvimage.u
-            self.v = yuvimage.v
+            self.u = yuv.u
+            self.v = yuv.v
         else:
             print("This was not supposed to happen...")
     
-    def initfromyuvdwted(self, yuvdwted, subsampling):
-        originalwidth, originalheight = yuvdwted.size()
-        ywidth, yheight, uwidth, uheight, vwidth, vheight = yuvsubsampled._getshape(originalwidth, originalheight, yuvdwted.recursionlevel - 1, subsampling)
-        ylxly = yuvdwted.y.reshape(yheight, ywidth)
-        ulxly = yuvdwted.u.reshape(uheight, uwidth)
-        vlxly = yuvdwted.v.reshape(vheight, vwidth)
+    def initfromdwt(self, dwt, subsampling):
+        originalwidth, originalheight = dwt.size()
+        ywidth, yheight, uwidth, uheight, vwidth, vheight = subsample._getshape(originalwidth, originalheight, dwt.recursionlevel - 1, subsampling)
+        ylxly = dwt.y.reshape(yheight, ywidth)
+        ulxly = dwt.u.reshape(uheight, uwidth)
+        vlxly = dwt.v.reshape(vheight, vwidth)
         
-        for i in reversed(range(yuvdwted.recursionlevel)):
-            ywidth, yheight, uwidth, uheight, vwidth, vheight = yuvsubsampled._getshape(originalwidth, originalheight, i, subsampling)
-            ylxly = yuvsubsampled._getdwtoriginal(
+        for i in reversed(range(dwt.recursionlevel)):
+            ywidth, yheight, uwidth, uheight, vwidth, vheight = subsample._getshape(originalwidth, originalheight, i, subsampling)
+            ylxly = subsample._getdwtoriginal(
                 ylxly,
-                yuvdwted.reconstructiondata[i]["ylxhy"].reshape((yheight, ywidth)),
-                yuvdwted.reconstructiondata[i]["yhxly"].reshape((yheight, ywidth)),
-                yuvdwted.reconstructiondata[i]["yhxhy"].reshape((yheight, ywidth))
+                dwt.reconstructiondata[i]["ylxhy"].reshape((yheight, ywidth)),
+                dwt.reconstructiondata[i]["yhxly"].reshape((yheight, ywidth)),
+                dwt.reconstructiondata[i]["yhxhy"].reshape((yheight, ywidth))
             )
-            ulxly = yuvsubsampled._getdwtoriginal(
+            ulxly = subsample._getdwtoriginal(
                 ulxly,
-                yuvdwted.reconstructiondata[i]["ulxhy"].reshape((uheight, uwidth)),
-                yuvdwted.reconstructiondata[i]["uhxly"].reshape((uheight, uwidth)),
-                yuvdwted.reconstructiondata[i]["uhxhy"].reshape((uheight, uwidth))
+                dwt.reconstructiondata[i]["ulxhy"].reshape((uheight, uwidth)),
+                dwt.reconstructiondata[i]["uhxly"].reshape((uheight, uwidth)),
+                dwt.reconstructiondata[i]["uhxhy"].reshape((uheight, uwidth))
             )
-            vlxly = yuvsubsampled._getdwtoriginal(
+            vlxly = subsample._getdwtoriginal(
                 vlxly,
-                yuvdwted.reconstructiondata[i]["vlxhy"].reshape((vheight, vwidth)),
-                yuvdwted.reconstructiondata[i]["vhxly"].reshape((vheight, vwidth)),
-                yuvdwted.reconstructiondata[i]["vhxhy"].reshape((vheight, vwidth))
+                dwt.reconstructiondata[i]["vlxhy"].reshape((vheight, vwidth)),
+                dwt.reconstructiondata[i]["vhxly"].reshape((vheight, vwidth)),
+                dwt.reconstructiondata[i]["vhxhy"].reshape((vheight, vwidth))
             )
         
         self.y = ylxly
         self.u = ulxly
         self.v = vlxly
         self.subsampling = subsampling
-        self.width, self.height = yuvdwted.size()
+        self.width, self.height = dwt.size()
     
     @staticmethod
     def _getshape(originalwidth, originalheight, recursionlevel, subsampling):
@@ -194,7 +194,7 @@ class yuvsubsampled(image):
 
         return original
 
-class yuvdwted(image):
+class dwt(image):
 
     def __init__(self):
         image.__init__(self)
@@ -204,37 +204,37 @@ class yuvdwted(image):
         self.v = None
         self.reconstructiondata = []
 
-    def initfromyuvsubsampled(self, yuvsubsampled, recursionlevel):
-        self.width, self.height = yuvsubsampled.size()
-        self.y = yuvsubsampled.y.copy()
-        self.u = yuvsubsampled.u.copy()
-        self.v = yuvsubsampled.v.copy()
+    def initfromsubsample(self, subsample, recursionlevel):
+        self.width, self.height = subsample.size()
+        self.y = subsample.y.copy()
+        self.u = subsample.u.copy()
+        self.v = subsample.v.copy()
         self.recursionlevel = recursionlevel
 
         for _ in range(recursionlevel):
-            ylx = yuvdwted._filter(self.y, "lowpass", 'x')
-            ulx = yuvdwted._filter(self.u, "lowpass", 'x')
-            vlx = yuvdwted._filter(self.v, "lowpass", 'x')
+            ylx = dwt._filter(self.y, "lowpass", 'x')
+            ulx = dwt._filter(self.u, "lowpass", 'x')
+            vlx = dwt._filter(self.v, "lowpass", 'x')
 
-            yhx = yuvdwted._filter(self.y, "highpass", 'x')
-            uhx = yuvdwted._filter(self.u, "highpass", 'x')
-            vhx = yuvdwted._filter(self.v, "highpass", 'x')
+            yhx = dwt._filter(self.y, "highpass", 'x')
+            uhx = dwt._filter(self.u, "highpass", 'x')
+            vhx = dwt._filter(self.v, "highpass", 'x')
 
-            ylxly = yuvdwted._filter(ylx, "lowpass", 'y')
-            ulxly = yuvdwted._filter(ulx, "lowpass", 'y')
-            vlxly = yuvdwted._filter(vlx, "lowpass", 'y')
+            ylxly = dwt._filter(ylx, "lowpass", 'y')
+            ulxly = dwt._filter(ulx, "lowpass", 'y')
+            vlxly = dwt._filter(vlx, "lowpass", 'y')
 
-            ylxhy = yuvdwted._filter(ylx, "highpass", 'y')
-            ulxhy = yuvdwted._filter(ulx, "highpass", 'y')
-            vlxhy = yuvdwted._filter(vlx, "highpass", 'y')
+            ylxhy = dwt._filter(ylx, "highpass", 'y')
+            ulxhy = dwt._filter(ulx, "highpass", 'y')
+            vlxhy = dwt._filter(vlx, "highpass", 'y')
 
-            yhxly = yuvdwted._filter(yhx, "lowpass", 'y')
-            uhxly = yuvdwted._filter(uhx, "lowpass", 'y')
-            vhxly = yuvdwted._filter(vhx, "lowpass", 'y')
+            yhxly = dwt._filter(yhx, "lowpass", 'y')
+            uhxly = dwt._filter(uhx, "lowpass", 'y')
+            vhxly = dwt._filter(vhx, "lowpass", 'y')
 
-            yhxhy = yuvdwted._filter(yhx, "highpass", 'y')
-            uhxhy = yuvdwted._filter(uhx, "highpass", 'y')
-            vhxhy = yuvdwted._filter(vhx, "highpass", 'y')
+            yhxhy = dwt._filter(yhx, "highpass", 'y')
+            uhxhy = dwt._filter(uhx, "highpass", 'y')
+            vhxhy = dwt._filter(vhx, "highpass", 'y')
 
             self.y = ylxly
             self.u = ulxly
@@ -251,26 +251,26 @@ class yuvdwted(image):
                 "vhxhy": vhxhy
             })
     
-    def initfromqyd(self, qyd):
-        self.recursionlevel = qyd.recursionlevel
-        self.y = yuvdwted._dequantize(qyd.y, qyd.deadzone, qyd.step)
-        self.u = yuvdwted._dequantize(qyd.u, qyd.deadzone, qyd.step)
-        self.v = yuvdwted._dequantize(qyd.v, qyd.deadzone, qyd.step)
+    def initfromquantize(self, quantize):
+        self.recursionlevel = quantize.recursionlevel
+        self.y = dwt._dequantize(quantize.y, quantize.deadzone, quantize.step)
+        self.u = dwt._dequantize(quantize.u, quantize.deadzone, quantize.step)
+        self.v = dwt._dequantize(quantize.v, quantize.deadzone, quantize.step)
         self.reconstructiondata = []
-        self.width, self.height = qyd.size()
-        self.recursionlevel = qyd.recursionlevel
+        self.width, self.height = quantize.size()
+        self.recursionlevel = quantize.recursionlevel
         
-        for i in qyd.reconstructiondata:
+        for i in quantize.reconstructiondata:
             self.reconstructiondata.append({
-                "ylxhy": yuvdwted._dequantize(i["ylxhy"], qyd.deadzone, qyd.step),
-                "yhxly": yuvdwted._dequantize(i["yhxly"], qyd.deadzone, qyd.step),
-                "yhxhy": yuvdwted._dequantize(i["yhxhy"], qyd.deadzone, qyd.step),
-                "ulxhy": yuvdwted._dequantize(i["ulxhy"], qyd.deadzone, qyd.step),
-                "uhxly": yuvdwted._dequantize(i["uhxly"], qyd.deadzone, qyd.step),
-                "uhxhy": yuvdwted._dequantize(i["uhxhy"], qyd.deadzone, qyd.step),
-                "vlxhy": yuvdwted._dequantize(i["vlxhy"], qyd.deadzone, qyd.step),
-                "vhxly": yuvdwted._dequantize(i["vhxly"], qyd.deadzone, qyd.step),
-                "vhxhy": yuvdwted._dequantize(i["vhxhy"], qyd.deadzone, qyd.step)
+                "ylxhy": dwt._dequantize(i["ylxhy"], quantize.deadzone, quantize.step),
+                "yhxly": dwt._dequantize(i["yhxly"], quantize.deadzone, quantize.step),
+                "yhxhy": dwt._dequantize(i["yhxhy"], quantize.deadzone, quantize.step),
+                "ulxhy": dwt._dequantize(i["ulxhy"], quantize.deadzone, quantize.step),
+                "uhxly": dwt._dequantize(i["uhxly"], quantize.deadzone, quantize.step),
+                "uhxhy": dwt._dequantize(i["uhxhy"], quantize.deadzone, quantize.step),
+                "vlxhy": dwt._dequantize(i["vlxhy"], quantize.deadzone, quantize.step),
+                "vhxly": dwt._dequantize(i["vhxly"], quantize.deadzone, quantize.step),
+                "vhxhy": dwt._dequantize(i["vhxhy"], quantize.deadzone, quantize.step)
             })
 
     @staticmethod
@@ -317,7 +317,7 @@ class yuvdwted(image):
     def _dequantize(vector, deadzone, step):
         return np.array([np.sign(x) * ((deadzone / 2) + (step * (abs(x) - 1 + 0.5))) for x in vector])
 
-class quantizedyuvdwted(image):
+class quantize(image):
 
     def __init__(self):
         image.__init__(self)
@@ -329,33 +329,33 @@ class quantizedyuvdwted(image):
         self.step = 1
         self.recursionlevel = 1
     
-    def initfromyuvdwted(self, yuvdwted, deadzone, step):
-        self.width, self.height = yuvdwted.size()
-        self.y = quantizedyuvdwted._quantize(yuvdwted.y.flatten(), deadzone, step)
-        self.u = quantizedyuvdwted._quantize(yuvdwted.u.flatten(), deadzone, step)
-        self.v = quantizedyuvdwted._quantize(yuvdwted.v.flatten(), deadzone, step)
+    def initfromdwt(self, dwt, deadzone, step):
+        self.width, self.height = dwt.size()
+        self.y = quantize._quantize(dwt.y.flatten(), deadzone, step)
+        self.u = quantize._quantize(dwt.u.flatten(), deadzone, step)
+        self.v = quantize._quantize(dwt.v.flatten(), deadzone, step)
         self.deadzone = deadzone
         self.step = step
-        self.recursionlevel = yuvdwted.recursionlevel
+        self.recursionlevel = dwt.recursionlevel
 
-        for i in yuvdwted.reconstructiondata:
+        for i in dwt.reconstructiondata:
             self.reconstructiondata.append({
-                "ylxhy": quantizedyuvdwted._quantize(i["ylxhy"].flatten(), deadzone, step),
-                "yhxly": quantizedyuvdwted._quantize(i["yhxly"].flatten(), deadzone, step),
-                "yhxhy": quantizedyuvdwted._quantize(i["yhxhy"].flatten(), deadzone, step),
-                "ulxhy": quantizedyuvdwted._quantize(i["ulxhy"].flatten(), deadzone, step),
-                "uhxly": quantizedyuvdwted._quantize(i["uhxly"].flatten(), deadzone, step),
-                "uhxhy": quantizedyuvdwted._quantize(i["uhxhy"].flatten(), deadzone, step),
-                "vlxhy": quantizedyuvdwted._quantize(i["vlxhy"].flatten(), deadzone, step),
-                "vhxly": quantizedyuvdwted._quantize(i["vhxly"].flatten(), deadzone, step),
-                "vhxhy": quantizedyuvdwted._quantize(i["vhxhy"].flatten(), deadzone, step)
+                "ylxhy": quantize._quantize(i["ylxhy"].flatten(), deadzone, step),
+                "yhxly": quantize._quantize(i["yhxly"].flatten(), deadzone, step),
+                "yhxhy": quantize._quantize(i["yhxhy"].flatten(), deadzone, step),
+                "ulxhy": quantize._quantize(i["ulxhy"].flatten(), deadzone, step),
+                "uhxly": quantize._quantize(i["uhxly"].flatten(), deadzone, step),
+                "uhxhy": quantize._quantize(i["uhxhy"].flatten(), deadzone, step),
+                "vlxhy": quantize._quantize(i["vlxhy"].flatten(), deadzone, step),
+                "vhxly": quantize._quantize(i["vhxly"].flatten(), deadzone, step),
+                "vhxhy": quantize._quantize(i["vhxhy"].flatten(), deadzone, step)
             })
     
     @staticmethod
     def _quantize(vector, deadzone, step):
         return np.array([np.sign(x) * max(0, math.floor(((abs(x) - (deadzone / 2)) / step) + 1)) for x in vector])
 
-class qydlzwed(image):
+class lzw(image):
 
     def __init__(self):
         image.__init__(self)
@@ -367,22 +367,22 @@ class qydlzwed(image):
         self.vdict = None
         self.reconstructiondata = []
     
-    def initfromqyd(self, qyd):
-        self.width, self.height = qyd.size()
-        self.ydict, self.y = qydlzwed._encode(qyd.y)
-        self.udict, self.u = qydlzwed._encode(qyd.u)
-        self.vdict, self.v = qydlzwed._encode(qyd.v)
+    def initfromquantize(self, quantize):
+        self.width, self.height = quantize.size()
+        self.ydict, self.y = lzw._encode(quantize.y)
+        self.udict, self.u = lzw._encode(quantize.u)
+        self.vdict, self.v = lzw._encode(quantize.v)
 
-        for i in qyd.reconstructiondata:
-            ylxhydict, ylxhy = qydlzwed._encode(i["ylxhy"])
-            yhxlydict, yhxly = qydlzwed._encode(i["yhxly"])
-            yhxhydict, yhxhy = qydlzwed._encode(i["yhxhy"])
-            ulxhydict, ulxhy = qydlzwed._encode(i["ulxhy"])
-            uhxlydict, uhxly = qydlzwed._encode(i["uhxly"])
-            uhxhydict, uhxhy = qydlzwed._encode(i["uhxhy"])
-            vlxhydict, vlxhy = qydlzwed._encode(i["vlxhy"])
-            vhxlydict, vhxly = qydlzwed._encode(i["vhxly"])
-            vhxhydict, vhxhy = qydlzwed._encode(i["vhxhy"])
+        for i in quantize.reconstructiondata:
+            ylxhydict, ylxhy = lzw._encode(i["ylxhy"])
+            yhxlydict, yhxly = lzw._encode(i["yhxly"])
+            yhxhydict, yhxhy = lzw._encode(i["yhxhy"])
+            ulxhydict, ulxhy = lzw._encode(i["ulxhy"])
+            uhxlydict, uhxly = lzw._encode(i["uhxly"])
+            uhxhydict, uhxhy = lzw._encode(i["uhxhy"])
+            vlxhydict, vlxhy = lzw._encode(i["vlxhy"])
+            vhxlydict, vhxly = lzw._encode(i["vhxly"])
+            vhxhydict, vhxhy = lzw._encode(i["vhxhy"])
             self.reconstructiondata.append({
                 "ylxhy": ylxhy,
                 "ylxhydict": ylxhydict,
@@ -421,7 +421,7 @@ class qydlzwed(image):
     
     @staticmethod
     def _encode(vector):
-        initdict = qydlzwed._getinitdict(vector)
+        initdict = lzw._getinitdict(vector)
         encdict = initdict.copy()
         encoded = np.array([], dtype = str)
         pos = 0
@@ -465,28 +465,28 @@ class compressedimage(image):
 
         image.__init__(self)
         self.rgbimage = rgbimage()
-        self.yuvimage = yuvimage()
-        self.yuvsubsampled = yuvsubsampled(yuvsubsamp)
-        self.yuvdwted = yuvdwted()
-        self.quantizedyuvdwted = quantizedyuvdwted()
-        self.qydlzwed = qydlzwed()
+        self.yuv = yuv()
+        self.subsample = subsample(yuvsubsamp)
+        self.dwt = dwt()
+        self.quantize = quantize()
+        self.lzw = lzw()
 
-        self.yuvimage.initfromimread(imread)
-        self.width, self.height = self.yuvimage.size()
-        self.yuvsubsampled.initfromyuvimage(self.yuvimage)
-        self.yuvdwted.initfromyuvsubsampled(self.yuvsubsampled, dwtrecurslevel)
-        self.quantizedyuvdwted.initfromyuvdwted(self.yuvdwted, quantizdeadzone, quantizstep)
-        self.qydlzwed.initfromqyd(self.quantizedyuvdwted)
+        self.yuv.initfromimread(imread)
+        self.width, self.height = self.yuv.size()
+        self.subsample.initfromyuv(self.yuv)
+        self.dwt.initfromsubsample(self.subsample, dwtrecurslevel)
+        self.quantize.initfromdwt(self.dwt, quantizdeadzone, quantizstep)
+        self.lzw.initfromquantize(self.quantize)
 
     def getprintable(self):
-        tmpyuvdwted = yuvdwted()
-        tmpyuvdwted.initfromqyd(self.quantizedyuvdwted)
-        tmpyuvsubsampled = yuvsubsampled()
-        tmpyuvsubsampled.initfromyuvdwted(tmpyuvdwted, self.yuvsubsampled.subsampling)
-        tmpyuvimage = yuvimage()
-        tmpyuvimage.initfromyuvsubsampled(tmpyuvsubsampled)
+        tmpdwt = dwt()
+        tmpdwt.initfromquantize(self.quantize)
+        tmpsubsample = subsample()
+        tmpsubsample.initfromdwt(tmpdwt, self.subsample.subsampling)
+        tmpyuv = yuv()
+        tmpyuv.initfromsubsample(tmpsubsample)
         tmprgbimage = rgbimage()
-        tmprgbimage.initfromyuvimage(tmpyuvimage)
+        tmprgbimage.initfromyuv(tmpyuv)
         printable = tmprgbimage.getprintable()
         return printable
     
@@ -495,19 +495,19 @@ class compressedimage(image):
     
     def getcompressedsize(self):
         size = 0
-        size += qydlzwed.getsize(self.qydlzwed.ydict, self.qydlzwed.y)
-        size += qydlzwed.getsize(self.qydlzwed.udict, self.qydlzwed.u)
-        size += qydlzwed.getsize(self.qydlzwed.vdict, self.qydlzwed.v)
+        size += lzw.getsize(self.lzw.ydict, self.lzw.y)
+        size += lzw.getsize(self.lzw.udict, self.lzw.u)
+        size += lzw.getsize(self.lzw.vdict, self.lzw.v)
 
-        for i in self.qydlzwed.reconstructiondata:
-            size += qydlzwed.getsize(i["ylxhydict"], i["ylxhy"])
-            size += qydlzwed.getsize(i["yhxlydict"], i["yhxly"])
-            size += qydlzwed.getsize(i["yhxhydict"], i["yhxhy"])
-            size += qydlzwed.getsize(i["ulxhydict"], i["ulxhy"])
-            size += qydlzwed.getsize(i["uhxlydict"], i["uhxly"])
-            size += qydlzwed.getsize(i["uhxhydict"], i["uhxhy"])
-            size += qydlzwed.getsize(i["vlxhydict"], i["vlxhy"])
-            size += qydlzwed.getsize(i["vhxlydict"], i["vhxly"])
-            size += qydlzwed.getsize(i["vhxhydict"], i["vhxhy"])
+        for i in self.lzw.reconstructiondata:
+            size += lzw.getsize(i["ylxhydict"], i["ylxhy"])
+            size += lzw.getsize(i["yhxlydict"], i["yhxly"])
+            size += lzw.getsize(i["yhxhydict"], i["yhxhy"])
+            size += lzw.getsize(i["ulxhydict"], i["ulxhy"])
+            size += lzw.getsize(i["uhxlydict"], i["uhxly"])
+            size += lzw.getsize(i["uhxhydict"], i["uhxhy"])
+            size += lzw.getsize(i["vlxhydict"], i["vlxhy"])
+            size += lzw.getsize(i["vhxlydict"], i["vhxly"])
+            size += lzw.getsize(i["vhxhydict"], i["vhxhy"])
         
         return size / 1000 # in kilobits
